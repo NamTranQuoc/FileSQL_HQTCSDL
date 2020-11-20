@@ -18,7 +18,8 @@ CREATE TABLE KhoaHoc
 	MaKhoaHoc INT PRIMARY KEY,
 	TenKhoaHoc NVARCHAR(30),
 	SoBuoi INT CHECK(SoBuoi > 0),
-	HocPhi INT
+	HocPhi INT,
+	TrangThai INT DEFAULT 1 -- 1 là có sẳn; 0 là đã bị ẩn
 )
 GO
 
