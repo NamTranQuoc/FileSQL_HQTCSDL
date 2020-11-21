@@ -573,12 +573,13 @@ INSERT dbo.Account VALUES ( 32, 'NV002', '000000', 2)
 INSERT dbo.Account VALUES ( 33, 'NV003', '000000', 2)
 INSERT dbo.Account VALUES ( 34, 'NV004', '000000', 2)
 INSERT dbo.Account VALUES ( 35, 'NV005', '000000', 2)
+GO
 
 --Khóa học
-INSERT dbo.KhoaHoc VALUES  (1, N'TOIEC', 45, 5000000)
-INSERT dbo.KhoaHoc VALUES  (2, N'IELTS', 50, 7000000)
-INSERT dbo.KhoaHoc VALUES  (3, N'GIAO TIẾP', 30, 6000000)
-INSERT dbo.KhoaHoc VALUES  (4, N'CƠ BẢN', 25, 2000000)
+INSERT dbo.KhoaHoc (MaKhoaHoc, TenKhoaHoc, SoBuoi, HocPhi) VALUES  (1, N'TOIEC', 45, 5000000)
+INSERT dbo.KhoaHoc (MaKhoaHoc, TenKhoaHoc, SoBuoi, HocPhi) VALUES  (2, N'IELTS', 50, 7000000)
+INSERT dbo.KhoaHoc (MaKhoaHoc, TenKhoaHoc, SoBuoi, HocPhi) VALUES  (3, N'GIAO TIẾP', 30, 6000000)
+INSERT dbo.KhoaHoc (MaKhoaHoc, TenKhoaHoc, SoBuoi, HocPhi) VALUES  (4, N'CƠ BẢN', 25, 2000000)
 GO
 
 --Phòng học
