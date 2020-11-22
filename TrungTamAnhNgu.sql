@@ -30,7 +30,6 @@ CREATE TABLE GiaoVien
 	SDT CHAR(10),
 	DiaChi NVARCHAR(50),
 	LuongCoBan INT,
-	SoBuoiDaDay INT,
 )
 GO
 
@@ -741,16 +740,16 @@ INSERT dbo.PhongHoc VALUES  ( 10, 'A302')
 GO
 
 --Giáo viên
-INSERT dbo.GiaoVien VALUES ( 1, N'Trần Văn Một', '0412784124', N'Linh Đông - Thủ Đức', 100000, 10)
-INSERT dbo.GiaoVien VALUES ( 2, N'Chung Thị Hai', '0947368638', N'Hiệp Bình Chánh - Thủ Đức', 90000, 15)
-INSERT dbo.GiaoVien VALUES ( 3, N'Huỳnh Ba', '0735267489', N'Linh Trung - Thủ Đức', 105000, 15)
-INSERT dbo.GiaoVien VALUES ( 4, N'Nguyễn Thị Bốn', '0897537643', N'Bình Thọ - Thủ Đức', 110000, 12)
-INSERT dbo.GiaoVien VALUES ( 5, N'Hoàng Ngọc Năm', '0172648339', N'Linh Chiểu - Thủ Đức', 95000, 13)
-INSERT dbo.GiaoVien VALUES ( 6, N'Nguyễn Thanh Sáu', '0966463433', N'Tam Phủ - Thủ Đức', 97000, 8)
-INSERT dbo.GiaoVien VALUES ( 7, N'Trần Công Bảy', '0937448832', N'Thảo Điền - Quận 2', 120000, 9)
-INSERT dbo.GiaoVien VALUES ( 8, N'Đoàn Thiên Bát', '0987263778', N'Thanh Đa - Bình Thạnh', 115000, 15)
-INSERT dbo.GiaoVien VALUES ( 9, N'Trần Giác Cửu', '0963748996', N'Phường 5 - Gò Vấp', 117000, 14)
-INSERT dbo.GiaoVien VALUES ( 10, N'Nguyễn Phạm Nhân', '0274836338', N'Hiệp Bình Phước - Thủ Đức', 100000, 17)
+INSERT dbo.GiaoVien VALUES ( 1, N'Trần Văn Một', '0412784124', N'Linh Đông - Thủ Đức', 100000)
+INSERT dbo.GiaoVien VALUES ( 2, N'Chung Thị Hai', '0947368638', N'Hiệp Bình Chánh - Thủ Đức', 90000)
+INSERT dbo.GiaoVien VALUES ( 3, N'Huỳnh Ba', '0735267489', N'Linh Trung - Thủ Đức', 105000)
+INSERT dbo.GiaoVien VALUES ( 4, N'Nguyễn Thị Bốn', '0897537643', N'Bình Thọ - Thủ Đức', 110000)
+INSERT dbo.GiaoVien VALUES ( 5, N'Hoàng Ngọc Năm', '0172648339', N'Linh Chiểu - Thủ Đức', 95000)
+INSERT dbo.GiaoVien VALUES ( 6, N'Nguyễn Thanh Sáu', '0966463433', N'Tam Phủ - Thủ Đức', 97000)
+INSERT dbo.GiaoVien VALUES ( 7, N'Trần Công Bảy', '0937448832', N'Thảo Điền - Quận 2', 120000)
+INSERT dbo.GiaoVien VALUES ( 8, N'Đoàn Thiên Bát', '0987263778', N'Thanh Đa - Bình Thạnh', 115000)
+INSERT dbo.GiaoVien VALUES ( 9, N'Trần Giác Cửu', '0963748996', N'Phường 5 - Gò Vấp', 117000)
+INSERT dbo.GiaoVien VALUES ( 10, N'Nguyễn Phạm Nhân', '0274836338', N'Hiệp Bình Phước - Thủ Đức', 100000)
 GO
 
 --Học Viên
