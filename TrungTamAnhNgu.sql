@@ -231,7 +231,7 @@ AS
 BEGIN
 	DECLARE @max INT
 	SET @max = CASE @NameTable
-		WHEN 'User' THEN (SELECT MAX(TaiKhoan) FROM dbo.Account)--giáo viên, học viên, nhân viên
+		WHEN 'User' THEN (SELECT MAX(IDTaiKhoan) FROM dbo.Account)--giáo viên, học viên, nhân viên
 		WHEN 'KhoaHoc' THEN (SELECT MAX(MaKhoaHoc) FROM dbo.KhoaHoc)
 		WHEN 'LopHoc' THEN (SELECT MAX(MaLop) FROM dbo.LopHoc)
 		WHEN 'PhongHoc' THEN (SELECT MAX(IDPhong) FROM dbo.PhongHoc)
@@ -313,13 +313,32 @@ END
 GO
 
 ----------------------------------------------------------------------------------------------------------
+--kiểm tra ngày (@ngay) và ca (@ca) của giáo viên đó đã có lịch dạy chưa (@gv)
+--nếu tồn tại trả về 1, không tồn tại trả về 0
+CREATE FUNCTION KiemTraLichGiaoVien (@ngay DATE, @maLop INT, @gv INT)
+RETURNS INT
+AS
+BEGIN
+	DECLARE @t INT
+	SELECT @t = COUNT(*)
+	FROM dbo.LichHoc
+	WHERE MaGiaoVien = @gv
+	AND NgayHoc = @ngay
+	AND MaLop = @maLop
+	IF (@t = 0)
+		RETURN 0
+	RETURN 1
+END
+GO
+
+----------------------------------------------------------------------------------------------------------
 -- PROCEDURE
 ----------------------------------------------------------------------------------------------------------
 --tạo lịch học tự động
-CREATE PROCEDURE TaoLichHoc (@MaLop INT, @MaGV INT)
+CREATE PROCEDURE TaoLichHoc (@MaLop INT)
 AS
 BEGIN
-	DECLARE @SoBuoi INT, @Ngay DATE, @i INT, @Thu CHAR(5)
+	DECLARE @SoBuoi INT, @Ngay DATE, @i INT, @Thu CHAR(5), @maGV INT
 	SET @Ngay = GETDATE()
 	SET @i = 1
 
@@ -328,29 +347,155 @@ BEGIN
 	ON KhoaHoc.MaKhoaHoc = LopHoc.ThuocKhoaHoc
 	WHERE MaLop = @MaLop
 
+	DECLARE @tongGV INT
+	SELECT @tongGV = COUNT(*) FROM dbo.TongSoBuoiDayTheoGiaoVien
+
+	SELECT MaGiaoVien, SL, IDENTITY(INT, 1, 1) AS ID INTO tbMaGV
+	FROM dbo.TongSoBuoiDayTheoGiaoVien
+	ORDER BY SL, MaGiaoVien
+	
+	SELECT @maGV = MaGiaoVien
+	FROM tbMaGV
+	WHERE ID = 1
+
 	WHILE (@i <= @SoBuoi)
 	BEGIN
 		IF ((dbo.KiemTraNgayVoiThu(@Ngay, @Thu)) = 1)
-		BEGIN
-			DECLARE @Phong INT, @TongPhong INT
-			SET @Phong = 1
-			SELECT @TongPhong = COUNT(*)
-			FROM dbo.PhongHoc
-			WHILE (@Phong <= @TongPhong)
+		BEGIN	
+			IF (dbo.KiemTraLichGiaoVien(@Ngay, @MaLop, @maGV) = 0)
 			BEGIN
-				IF ((dbo.TruyVanNgayPhongLop_LichHoc(@Ngay, @Phong, @MaLop)) = 0)
-				BEGIN
-					INSERT dbo.LichHoc VALUES (@MaGV, @MaLop, @i, @Phong, @Ngay)
-					SET @i = @i + 1
-					BREAK
-				END 
-				ELSE
-					SET @Phong = @Phong + 1
-			END		
-		END
+				DECLARE @Phong INT, @TongPhong INT
+				SET @Phong = 1
+				SELECT @TongPhong = COUNT(*)
+				FROM dbo.PhongHoc
 
-		SET @Ngay = DATEADD(DAY, 1, @Ngay)
+				WHILE (@Phong <= @TongPhong)
+				BEGIN
+					IF ((dbo.TruyVanNgayPhongLop_LichHoc(@Ngay, @Phong, @MaLop)) = 0)
+					BEGIN					
+						INSERT dbo.LichHoc VALUES (@maGV, @MaLop, @i, @Phong, @Ngay)
+						SET @i = @i + 1
+						BREAK
+					END 
+					ELSE
+						SET @Phong = @Phong + 1
+				END
+				SET @Ngay = DATEADD(DAY, 1, @Ngay)
+			END	
+			ELSE
+            BEGIN				
+				DECLARE @dem INT, @test3 INT
+				SET @test3 = 0
+				SET @i = 0
+				WHILE (@dem < @tongGV)
+				BEGIN
+					SELECT @maGV = MaGiaoVien
+					FROM tbMaGV
+					WHERE ID = @dem
+					IF (dbo.KiemTraLichGiaoVien(@Ngay, @MaLop, @maGV) = 0)
+					BEGIN
+						SET @test3 = 1
+						BREAK
+					END
+				END
+				IF (@test3 = 0)
+				BEGIN
+					SELECT @maGV = MaGiaoVien
+					FROM tbMaGV
+					WHERE ID = 1
+					SET @Ngay = DATEADD(DAY, 1, @Ngay)
+				END
+			END
+		END
+		ELSE 
+			SET @Ngay = DATEADD(DAY, 1, @Ngay)
 	END
+	DROP TABLE tbMaGV
+END
+GO
+-----------------------------------------------------------------------------------------------------------
+--Thêm lịch khi tổng số buổi dạy của khóa học tăng hoăc một ngày trong lịch học bị xóa
+CREATE PROCEDURE ThemLichHoc (@MaLop INT)
+AS
+BEGIN
+	DECLARE @SoBuoi INT, @Ngay DATE, @i INT, @Thu CHAR(5), @maGV INT
+	--SET @Ngay = GETDATE()
+	--SELECT * 
+	--FROM dbo.LichHoc
+	--WHERE MaLop = 1
+	--GROUP BY MaLop
+	--HAVING NgayHoc = MAX(NgayHoc)
+	SET @i = 1
+
+	SELECT @SoBuoi = SoBuoi, @Thu = NgayHocTrongTuan
+	FROM dbo.LopHoc INNER JOIN dbo.KhoaHoc
+	ON KhoaHoc.MaKhoaHoc = LopHoc.ThuocKhoaHoc
+	WHERE MaLop = @MaLop
+
+	DECLARE @tongGV INT
+	SELECT @tongGV = COUNT(*) FROM dbo.TongSoBuoiDayTheoGiaoVien
+
+	SELECT MaGiaoVien, SL, IDENTITY(INT, 1, 1) AS ID INTO tbMaGV
+	FROM dbo.TongSoBuoiDayTheoGiaoVien
+	ORDER BY SL, MaGiaoVien
+	
+	SELECT @maGV = MaGiaoVien
+	FROM tbMaGV
+	WHERE ID = 1
+
+	WHILE (@i <= @SoBuoi)
+	BEGIN
+		IF ((dbo.KiemTraNgayVoiThu(@Ngay, @Thu)) = 1)
+		BEGIN	
+			IF (dbo.KiemTraLichGiaoVien(@Ngay, @MaLop, @maGV) = 0)
+			BEGIN
+				DECLARE @Phong INT, @TongPhong INT
+				SET @Phong = 1
+				SELECT @TongPhong = COUNT(*)
+				FROM dbo.PhongHoc
+
+				WHILE (@Phong <= @TongPhong)
+				BEGIN
+					IF ((dbo.TruyVanNgayPhongLop_LichHoc(@Ngay, @Phong, @MaLop)) = 0)
+					BEGIN					
+						INSERT dbo.LichHoc VALUES (@maGV, @MaLop, @i, @Phong, @Ngay)
+						SET @i = @i + 1
+						BREAK
+					END 
+					ELSE
+						SET @Phong = @Phong + 1
+				END
+				SET @Ngay = DATEADD(DAY, 1, @Ngay)
+			END	
+			ELSE
+            BEGIN				
+				DECLARE @dem INT, @test3 INT
+				SET @test3 = 0
+				SET @i = 0
+				WHILE (@dem < @tongGV)
+				BEGIN
+					SELECT @maGV = MaGiaoVien
+					FROM tbMaGV
+					WHERE ID = @dem
+					IF (dbo.KiemTraLichGiaoVien(@Ngay, @MaLop, @maGV) = 0)
+					BEGIN
+						SET @test3 = 1
+						BREAK
+					END
+				END
+				IF (@test3 = 0)
+				BEGIN
+					SELECT @maGV = MaGiaoVien
+					FROM tbMaGV
+					WHERE ID = 1
+					SET @Ngay = DATEADD(DAY, 1, @Ngay)
+				END
+			END
+		END
+		ELSE 
+			SET @Ngay = DATEADD(DAY, 1, @Ngay)
+	END
+	DROP TABLE tbMaGV
 END
 GO
 
@@ -487,17 +632,8 @@ BEGIN
 	DECLARE @maGV INT, @maLop INT, @sql VARCHAR(MAX)
 	SELECT @maLop = Inserted.MaLop
 	FROM Inserted
-	--tạo lịch học
-	SELECT TOP(1) @maGV = Q.MaGiaoVien
-	FROM (SELECT GiaoVien.MaGiaoVien, COUNT(*) AS SL
-		  FROM dbo.LichHoc RIGHT JOIN dbo.GiaoVien
-		  ON GiaoVien.MaGiaoVien = LichHoc.MaGiaoVien
-		  GROUP BY GiaoVien.MaGiaoVien) AS Q
-	WHERE Q.SL <= ALL (SELECT COUNT(*) AS SL
-					   FROM dbo.LichHoc RIGHT JOIN dbo.GiaoVien
-					   ON GiaoVien.MaGiaoVien = LichHoc.MaGiaoVien
-					   GROUP BY GiaoVien.MaGiaoVien)
-	EXECUTE dbo.TaoLichHoc @maLop, @maGV		
+	--tạo lịch học	
+	EXECUTE dbo.TaoLichHoc @maLop		
 	--tạo danh sách học viên của lớp
 	SET @sql = 'CREATE VIEW DanhSachLop_' + CONVERT(VARCHAR(10), @maLop) + ' AS (SELECT * FROM dbo.TaoViewLop(' + CONVERT(VARCHAR(10), @maLop) + '))'
 	EXECUTE (@sql)
@@ -531,6 +667,15 @@ AS
 	WHERE LopHoc.MaLop = LichHoc.MaLop
 	AND Phong = IDPhong
 	AND GiaoVien.MaGiaoVien = LichHoc.MaGiaoVien
+GO
+---------------------------------------------------------------------------------------------------------------------------------------------
+--tổng số lượng buổi dạy trong lịch của giáo viên bắt đầu từ ngày hiện tại
+CREATE VIEW TongSoBuoiDayTheoGiaoVien
+AS
+	SELECT GiaoVien.MaGiaoVien, COUNT(*) AS SL
+	FROM dbo.LichHoc RIGHT JOIN dbo.GiaoVien
+	ON GiaoVien.MaGiaoVien = LichHoc.MaGiaoVien
+	GROUP BY GiaoVien.MaGiaoVien
 GO
 
 ---------------------------------------------------------------------------------------------------------------------------------------------
