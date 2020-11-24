@@ -892,6 +892,82 @@ AS
 	GROUP BY GiaoVien.MaGiaoVien
 GO
 
+-----------------------------------------------------------------------------------------------------------------------------------------------
+-- CÁC HÀM VÀ THỦ TỤC XỬ LÝ HỌC BÙ CỦA HỌC VIÊN
+-----------------------------------------------------------------------------------------------------------------------------------------------
+-- Hàm lấy các lớp có thể học bù của 1 buổi 
+Create function LayHocBu(@TheoKhoaHoc int, @MaLop int, @BuoiHoc int)
+returns table
+as
+	return (Select LichHoc.MaGiaoVien,LichHoc.MaLop,LichHoc.Buoi,LichHoc.Phong,LichHoc.NgayHoc,Chon=0
+			From LopHoc,LichHoc
+			Where LopHoc.ThuocKhoaHoc=@TheoKhoaHoc and LichHoc.Buoi=@BuoiHoc 
+			and LopHoc.MaLop=LichHoc.MaLop and DATEDIFF(day, GETDATE(), LichHoc.NgayHoc)>=0
+			and LichHoc.MaLop!=@MaLop)
+GO
+
+-- Hàm lấy Khóa học của 1 lớp học 
+Create function LayKhoaLH(@MaLop int)
+returns int
+as
+begin
+	declare @MaKhoaHoc int
+	Select @MaKhoaHoc=ThuocKhoaHoc
+	From LopHoc
+	Where MaLop=@MaLop
+	return @MaKhoaHoc
+end
+GO
+
+-- Hàm Kiểm tra buổi học bù đã được đăng ký chưa
+Create function KtraHocBuCoTonTai(@maHocVien int, @maLop int, @buoi int)
+returns int
+as
+begin
+	declare @hocBu int
+	if(Exists(Select * From Vang Where MaHocVien=@maHocVien and MaLop=@maLop and Buoi=@buoi))
+	begin
+		Select @hocBu=HocBu From Vang Where MaHocVien=@maHocVien and MaLop=@maLop and Buoi=@buoi
+		return @hocBu
+	end
+	return -1
+end
+GO
+
+-- Thủ tục khi nhấn Lưu đăng ký học bù: nếu chưa Đk thì thêm, ngược lại cập nhật
+Create proc ThemVaCapNhatHocBu @maHocVien int, @maLop int, @buoi int, @hocBu int 
+as
+begin
+	if((Select dbo.KtraHocBuCoTonTai(@maHocVien,@maLop,@buoi))!=-1)
+	begin
+		Update Vang Set HocBu=@hocBu Where MaHocVien=@maHocVien and MaLop=@maLop and Buoi=@buoi
+	end
+	else
+	begin
+		Insert into Vang values(@maHocVien,@maLop,@buoi,@hocBu)
+	end
+end
+GO
+
+-- Thủ tục Hủy bỏ việc đăng ký học bù
+Create proc HuyBoHocBu(@maHocVien int, @maLop int, @buoi int)
+as
+begin
+	Delete From Vang Where MaHocVien=@maHocVien and MaLop=@maLop and Buoi=@buoi
+end
+GO
+
+-- Thủ tục lấy số buổi học của 1 lớp
+Create proc SoBuoiHoc @maLop int
+as
+begin
+	Select KhoaHoc.SoBuoi From LopHoc,KhoaHoc 
+    Where LopHoc.ThuocKhoaHoc=KhoaHoc.MaKhoaHoc and
+		  LopHoc.MaLop= @maLop
+end
+GO
+---------------------------------------------------------------------------------------------
+
 ---------------------------------------------------------------------------------------------------------------------------------------------
 --NHẬP DỮ LIỆU
 --------------------------------------------------------------------------------------------------------------------------------------------
