@@ -234,6 +234,8 @@ BEGIN
 		WHEN 'KhoaHoc' THEN (SELECT MAX(MaKhoaHoc) FROM dbo.KhoaHoc)
 		WHEN 'LopHoc' THEN (SELECT MAX(MaLop) FROM dbo.LopHoc)
 		WHEN 'PhongHoc' THEN (SELECT MAX(IDPhong) FROM dbo.PhongHoc)
+		WHEN 'HocVien' THEN (SELECT MAX(MaHocVien) FROM dbo.HocVien)
+		WHEN 'GiaoVien' THEN (SELECT MAX(MaGiaoVien) FROM dbo.GiaoVien)
 	END
     
 	SET @max = @max + 1
