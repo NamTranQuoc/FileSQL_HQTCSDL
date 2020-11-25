@@ -9,7 +9,7 @@ CREATE TABLE Account
 	IDTaiKhoan INT PRIMARY KEY,
 	TaiKhoan VARCHAR(32) UNIQUE, -- tên tài khoản
 	MatKhau VARCHAR(32),
-	LoaiTaiKhoan INT CHECK (LoaiTaiKhoan > 0 AND LoaiTaiKhoan < 5), -- 1:Admin , 2:nhân viên, 3:Giáo viên, 4:học viên
+	LoaiTaiKhoan INT CHECK (LoaiTaiKhoan > 0 AND LoaiTaiKhoan < 5), -- 1:Admin , 3:Giáo viên, 4:học viên
 )
 GO
 
@@ -234,8 +234,6 @@ BEGIN
 		WHEN 'KhoaHoc' THEN (SELECT MAX(MaKhoaHoc) FROM dbo.KhoaHoc)
 		WHEN 'LopHoc' THEN (SELECT MAX(MaLop) FROM dbo.LopHoc)
 		WHEN 'PhongHoc' THEN (SELECT MAX(IDPhong) FROM dbo.PhongHoc)
-		WHEN 'HocVien' THEN (SELECT MAX(MaHocVien) FROM dbo.HocVien)
-		WHEN 'GiaoVien' THEN (SELECT MAX(MaGiaoVien) FROM dbo.GiaoVien)
 	END
     
 	SET @max = @max + 1
@@ -285,7 +283,7 @@ GO
 ---------------------------------------------------------------------------------------------------------
 --hàm kiểm tra đăng nhập
 --input: TaiKhoan, MatKhau
---output: 5 sai tài khoản hoặc mật khẩu, 1:Admin , 2:nhân viên, 3:Giáo viên, 4:học viên
+--output: 5 sai tài khoản hoặc mật khẩu, 1:Admin, 3:Giáo viên, 4:học viên
 CREATE FUNCTION KienTraDangNhap(@TaiKhoan VARCHAR(32), @MatKhau VARCHAR(32))
 RETURNS INT
 AS
@@ -966,7 +964,6 @@ begin
 		  LopHoc.MaLop= @maLop
 end
 GO
----------------------------------------------------------------------------------------------
 
 ---------------------------------------------------------------------------------------------------------------------------------------------
 --NHẬP DỮ LIỆU
@@ -1003,11 +1000,6 @@ INSERT dbo.Account VALUES ( 27, 'HV00017', '000000', 4)
 INSERT dbo.Account VALUES ( 28, 'HV00018', '000000', 4)
 INSERT dbo.Account VALUES ( 29, 'HV00019', '000000', 4)
 INSERT dbo.Account VALUES ( 30, 'HV00020', '000000', 4)
-INSERT dbo.Account VALUES ( 31, 'NV001', '000000', 2)
-INSERT dbo.Account VALUES ( 32, 'NV002', '000000', 2)
-INSERT dbo.Account VALUES ( 33, 'NV003', '000000', 2)
-INSERT dbo.Account VALUES ( 34, 'NV004', '000000', 2)
-INSERT dbo.Account VALUES ( 35, 'NV005', '000000', 2)
 GO
 
 --Khóa học
