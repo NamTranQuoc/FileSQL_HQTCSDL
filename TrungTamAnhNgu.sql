@@ -889,6 +889,24 @@ AS
 	ON GiaoVien.MaGiaoVien = LichHoc.MaGiaoVien
 	GROUP BY GiaoVien.MaGiaoVien
 GO
+---------------------------------------------------------------------------------------------------------------------------------------------
+--tổng hợp số học viên đã đăng ký của một lớp
+CREATE VIEW TongHocVienDaDangKyTheoLop
+AS
+	SELECT LopHoc.MaLop, COUNT(MaHocVien) AS SL
+	FROM dbo.DangKy RIGHT JOIN dbo.LopHoc
+	ON LopHoc.MaLop = DangKy.MaLop
+	GROUP BY LopHoc.MaLop
+GO
+---------------------------------------------------------------------------------------------------------------------------------------------
+--Tổng hợp các lớp để học sinh đăng ký
+CREATE VIEW DanhSachLopDangKy
+AS 
+	SELECT T.MaLop, SoHocVienDuKien, SL, CaHoc, NgayHocTrongTuan, ThuocKhoaHoc, TenKhoaHoc
+	FROM dbo.LopHoc, dbo.KhoaHoc, TongHocVienDaDangKyTheoLop AS T
+	WHERE KhoaHoc.MaKhoaHoc = LopHoc.ThuocKhoaHoc
+	AND dbo.LopHoc.MaLop = T.MaLop
+GO
 
 -----------------------------------------------------------------------------------------------------------------------------------------------
 -- CÁC HÀM VÀ THỦ TỤC XỬ LÝ HỌC BÙ CỦA HỌC VIÊN
