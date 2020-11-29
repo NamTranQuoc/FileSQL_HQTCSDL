@@ -983,6 +983,40 @@ begin
 end
 GO
 
+---------------------------------------------------------------------------------------------------------------------
+-- Thủ tục  xử lý Expense
+---------------------------------------------------------------------------------------------------------------------
+
+-- Thủ tục lấy ra danh sách học viên chưa thanh toán học phí theo khóa học
+CREATE PROC HocVienExpenseByCourse
+@tenkhoahoc NVARCHAR(30)
+AS
+BEGIN
+    SELECT lh.MaLop AS N'Mã Lớp Học',dk.MaHocVien AS N'Mã Học Viên', hv.HoTen AS N'Họ và Tên', hv.SDT AS N'Số Điện Thoại' , kh.TenKhoaHoc AS N'Tên Khóa Học' , lh.NgayHocTrongTuan AS N'Ngày Học', dk.TrangThaiThanhToan AS N'Thanh Toán'
+	FROM dbo.HocVien hv
+	INNER JOIN dbo.DangKy dk ON dk.MaHocVien = hv.MaHocVien
+	INNER JOIN dbo.LopHoc lh ON lh.MaLop = dk.MaLop
+	INNER JOIN dbo.KhoaHoc kh ON kh.MaKhoaHoc = lh.ThuocKhoaHoc
+	WHERE kh.TenKhoaHoc = @tenkhoahoc AND dk.TrangThaiThanhToan = 0
+	ORDER BY lh.MaLop ASC
+END
+GO
+
+-- Thủ tục lấy ra danh sách học viên chưa thanh toán học phí
+CREATE PROC HocVienExpense
+AS
+BEGIN
+    SELECT lh.MaLop AS N'Mã Lớp Học',dk.MaHocVien AS N'Mã Học Viên', hv.HoTen AS N'Họ và Tên', hv.SDT AS N'Số Điện Thoại' , kh.TenKhoaHoc AS N'Tên Khóa Học' , lh.NgayHocTrongTuan AS N'Ngày Học', dk.TrangThaiThanhToan AS N'Thanh Toán'
+	FROM dbo.HocVien hv
+	INNER JOIN dbo.DangKy dk ON dk.MaHocVien = hv.MaHocVien
+	INNER JOIN dbo.LopHoc lh ON lh.MaLop = dk.MaLop
+	INNER JOIN dbo.KhoaHoc kh ON kh.MaKhoaHoc = lh.ThuocKhoaHoc
+	WHERE dk.TrangThaiThanhToan = 0
+	ORDER BY lh.MaLop ASC
+END
+GO
+
+
 ---------------------------------------------------------------------------------------------------------------------------------------------
 --NHẬP DỮ LIỆU
 --------------------------------------------------------------------------------------------------------------------------------------------
