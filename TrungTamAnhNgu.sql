@@ -346,6 +346,48 @@ END
 GO
 
 ----------------------------------------------------------------------------------------------------------
+-- Hàm lấy các lớp có thể học bù của 1 buổi 
+CREATE FUNCTION LayHocBu(@TheoKhoaHoc INT, @MaLop INT, @BuoiHoc INT)
+RETURNS TABLE
+AS
+	RETURN (SELECT LichHoc.MaGiaoVien,LichHoc.MaLop,LichHoc.Buoi,LichHoc.Phong,LichHoc.NgayHoc,Chon=0
+			FROM LopHoc,LichHoc
+			WHERE LopHoc.ThuocKhoaHoc=@TheoKhoaHoc and LichHoc.Buoi=@BuoiHoc 
+			and LopHoc.MaLop=LichHoc.MaLop and DATEDIFF(DAY, GETDATE(), LichHoc.NgayHoc)>=0
+			and LichHoc.MaLop!=@MaLop)
+GO
+
+----------------------------------------------------------------------------------------------------------
+-- Hàm lấy Khóa học của 1 lớp học 
+CREATE FUNCTION LayKhoaLH(@MaLop INT)
+RETURNS INT
+AS
+BEGIN
+	DECLARE @MaKhoaHoc INT
+	SELECT @MaKhoaHoc=ThuocKhoaHoc
+	FROM LopHoc
+	WHERE MaLop=@MaLop
+	RETURN @MaKhoaHoc
+END
+GO
+
+----------------------------------------------------------------------------------------------------------
+-- Hàm Kiểm tra buổi học bù đã được đăng ký chưa
+CREATE FUNCTION KtraHocBuCoTonTai(@maHocVien INT, @maLop INT, @buoi INT)
+RETURNS INT
+AS
+BEGIN
+	DECLARE @hocBu INT
+	if(Exists(SELECT * FROM Vang WHERE MaHocVien=@maHocVien and MaLop=@maLop and Buoi=@buoi))
+	BEGIN
+		SELECT @hocBu=HocBu FROM Vang WHERE MaHocVien=@maHocVien and MaLop=@maLop and Buoi=@buoi
+		RETURN @hocBu
+	END
+	RETURN -1
+END
+GO
+
+----------------------------------------------------------------------------------------------------------
 -- PROCEDURE
 ----------------------------------------------------------------------------------------------------------
 --tạo lịch học tự động
@@ -427,6 +469,7 @@ BEGIN
 	DROP TABLE tbMaGV
 END
 GO
+
 -----------------------------------------------------------------------------------------------------------
 --Thêm lịch một ngày trong lịch học bị xóa
 CREATE PROCEDURE ThemLichHoc (@MaLop INT)
@@ -530,6 +573,7 @@ BEGIN
 	DROP TABLE tbMaGV	
 END
 GO
+
 ------------------------------------------------------------------------------------------------------------
 --thêm lịch học khi số buổi của khóa học tăng
 CREATE PROCEDURE ThemLichHocTheoKhoa (@maLop INT)
@@ -635,6 +679,151 @@ CREATE PROCEDURE ThemBuoiVang (@maHocVien INT, @maLop INT, @Buoi INT)
 AS 
 BEGIN
 	INSERT dbo.Vang (MaHocVien, MaLop, Buoi) VALUES ( @maHocVien,@maLop,@Buoi)
+END
+GO
+
+-------------------------------------------------------------------------------------------------------------------------------------------
+-- Báo cáo theo danh thu của khóa 
+CREATE PROC BaoCaoDoanhThuTheoKhoa
+AS
+BEGIN
+	SELECT TenKhoaHoc=N'TỔNG TIỀN',SUM(Tinh.TongTien) TongTien
+	FROM (SELECT KhoaHoc.TenKhoaHoc, KhoaHoc.HocPhi*COUNT(DangKy.MaHocVien) as TongTien
+		  FROM DangKy,LopHoc,KhoaHoc
+	      WHERE DangKy.MaLop=LopHoc.MaLop and LopHoc.ThuocKhoaHoc=KhoaHoc.MaKhoaHoc
+		  GROUP BY KhoaHoc.TenKhoaHoc, KhoaHoc.HocPhi) as Tinh
+	UNION 
+	SELECT KhoaHoc.TenKhoaHoc, KhoaHoc.HocPhi*COUNT(DangKy.MaHocVien) as TongTien 
+	FROM DangKy,LopHoc,KhoaHoc 
+	WHERE DangKy.MaLop=LopHoc.MaLop and LopHoc.ThuocKhoaHoc=KhoaHoc.MaKhoaHoc
+	GROUP BY KhoaHoc.TenKhoaHoc, KhoaHoc.HocPhi
+END
+GO
+
+----------------------------------------------------------------------------------------------------------
+-- báo cáo giáo viên theo khóa
+CREATE PROC BaoCaoGiaoVienThuocKhoaHoc
+AS
+BEGIN
+	SELECT DISTINCT KhoaHoc.TenKhoaHoc,GiaoVien.MaGiaoVien,GiaoVien.HoTen,GiaoVien.SDT,GiaoVien.DiaChi,GiaoVien.LuongCoBan
+	FROM GiaoVien, LichHoc, LopHoc, KhoaHoc
+	WHERE GiaoVien.MaGiaoVien=LichHoc.MaGiaoVien and
+	  LichHoc.MaLop=LopHoc.MaLop and LopHoc.ThuocKhoaHoc=KhoaHoc.MaKhoaHoc
+END
+GO
+
+-------------------------------------------------------------------------------------------------------
+--báo cáo lớp theo khóa
+CREATE PROC BaoCaoLopThuocKhoa
+AS
+BEGIN
+	SELECT KhoaHoc.TenKhoaHoc,LopHoc.MaLop,LopHoc.SoHocVienDuKien,LopHoc.CaHoc,LopHoc.NgayHocTrongTuan
+	FROM LopHoc,KhoaHoc
+	WHERE LopHoc.ThuocKhoaHoc=KhoaHoc.MaKhoaHoc
+END
+GO 
+
+----------------------------------------------------------------------------------------------------------
+-- báo cáo học viên theo lớp
+CREATE PROC BaoCaoHocVienThuocLop
+AS
+BEGIN
+	SELECT HocVien.MaHocVien, HocVien.HoTen, LopHoc.MaLop,LopHoc.CaHoc,LopHoc.NgayHocTrongTuan,KhoaHoc.TenKhoaHoc
+	FROM HocVien,DangKy,LopHoc,KhoaHoc
+	WHERE HocVien.MaHocVien=DangKy.MaHocVien and DangKy.MaLop=LopHoc.MaLop and LopHoc.ThuocKhoaHoc=KhoaHoc.MaKhoaHoc
+END 
+GO
+
+-----------------------------------------------------------------------------------------------------------
+-- Lấy dữ liệu lớp theo khóa học
+CREATE PROC LopTheoKhoaHoc(@id INT)
+AS
+BEGIN
+	SELECT LopHoc.MaLop, CaHoc, NgayHocTrongTuan, SoBuoi, HocPhi, Q.NgayBatDau
+	FROM dbo.LopHoc, dbo.KhoaHoc, (SELECT MaLop, MIN(NgayHoc) AS NgayBatDau 
+								   FROM dbo.LichHoc
+								   GROUP BY MaLop) AS Q
+	WHERE MaKhoaHoc = @id
+	AND KhoaHoc.MaKhoaHoc = LopHoc.ThuocKhoaHoc
+	AND LopHoc.MaLop = Q.MaLop
+END
+GO
+------------------------------------------------------------------------------------------------------------------------------------------
+-- Thủ tục khi nhấn Lưu đăng ký học bù: nếu chưa Đk thì thêm, ngược lại cập nhật
+CREATE PROC ThemVaCapNhatHocBu @maHocVien INT, @maLop INT, @buoi INT, @hocBu INT 
+AS
+BEGIN
+	IF((SELECT dbo.KtraHocBuCoTonTai(@maHocVien,@maLop,@buoi))!=-1)
+	BEGIN
+		UPDATE Vang SET HocBu=@hocBu WHERE MaHocVien=@maHocVien and MaLop=@maLop and Buoi=@buoi
+	END
+	ELSE
+	BEGIN
+		INSERT INTO Vang VALUES(@maHocVien,@maLop,@buoi,@hocBu)
+	END
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- Thủ tục Hủy bỏ việc đăng ký học bù
+CREATE PROC HuyBoHocBu(@maHocVien INT, @maLop INT, @buoi INT)
+AS
+BEGIN
+	DELETE FROM Vang WHERE MaHocVien=@maHocVien and MaLop=@maLop and Buoi=@buoi
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- Thủ tục lấy số buổi học của 1 lớp
+CREATE PROC SoBuoiHoc @maLop INT
+AS
+BEGIN
+	SELECT KhoaHoc.SoBuoi FROM LopHoc,KhoaHoc 
+    WHERE LopHoc.ThuocKhoaHoc=KhoaHoc.MaKhoaHoc and
+		  LopHoc.MaLop= @maLop
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- Thủ tục lấy ra danh sách học viên chưa thanh toán học phí theo khóa học
+CREATE PROC HocVienExpenseByCourse
+@tenkhoahoc NVARCHAR(30)
+AS
+BEGIN
+    SELECT lh.MaLop AS N'Mã Lớp Học',dk.MaHocVien AS N'Mã Học Viên', hv.HoTen AS N'Họ và Tên', hv.SDT AS N'Số Điện Thoại' , kh.TenKhoaHoc AS N'Tên Khóa Học' , lh.NgayHocTrongTuan AS N'Ngày Học', dk.TrangThaiThanhToan AS N'Thanh Toán'
+	FROM dbo.HocVien hv
+	INNER JOIN dbo.DangKy dk ON dk.MaHocVien = hv.MaHocVien
+	INNER JOIN dbo.LopHoc lh ON lh.MaLop = dk.MaLop
+	INNER JOIN dbo.KhoaHoc kh ON kh.MaKhoaHoc = lh.ThuocKhoaHoc
+	WHERE kh.TenKhoaHoc = @tenkhoahoc AND dk.TrangThaiThanhToan = 0
+	ORDER BY lh.MaLop ASC
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- Thủ tục lấy ra danh sách học viên chưa thanh toán học phí
+CREATE PROC HocVienExpense
+AS
+BEGIN
+    SELECT lh.MaLop AS N'Mã Lớp Học',dk.MaHocVien AS N'Mã Học Viên', hv.HoTen AS N'Họ và Tên', hv.SDT AS N'Số Điện Thoại' , kh.TenKhoaHoc AS N'Tên Khóa Học' , lh.NgayHocTrongTuan AS N'Ngày Học', dk.TrangThaiThanhToan AS N'Thanh Toán'
+	FROM dbo.HocVien hv
+	INNER JOIN dbo.DangKy dk ON dk.MaHocVien = hv.MaHocVien
+	INNER JOIN dbo.LopHoc lh ON lh.MaLop = dk.MaLop
+	INNER JOIN dbo.KhoaHoc kh ON kh.MaKhoaHoc = lh.ThuocKhoaHoc
+	WHERE dk.TrangThaiThanhToan = 0
+	ORDER BY lh.MaLop ASC
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- Thu tuc update thanh toan cua ban DangKy
+CREATE PROC UpdateExpense
+@mahocvien INT,
+@malop INT,
+@trangthai BIT
+AS
+BEGIN
+	UPDATE DangKy SET TrangThaiThanhToan = @trangthai WHERE MaHocVien = @mahocvien and MaLop = @malop
 END
 GO
 
@@ -907,127 +1096,6 @@ AS
 	WHERE KhoaHoc.MaKhoaHoc = LopHoc.ThuocKhoaHoc
 	AND dbo.LopHoc.MaLop = T.MaLop
 GO
-
------------------------------------------------------------------------------------------------------------------------------------------------
--- CÁC HÀM VÀ THỦ TỤC XỬ LÝ HỌC BÙ CỦA HỌC VIÊN
------------------------------------------------------------------------------------------------------------------------------------------------
--- Hàm lấy các lớp có thể học bù của 1 buổi 
-Create function LayHocBu(@TheoKhoaHoc int, @MaLop int, @BuoiHoc int)
-returns table
-as
-	return (Select LichHoc.MaGiaoVien,LichHoc.MaLop,LichHoc.Buoi,LichHoc.Phong,LichHoc.NgayHoc,Chon=0
-			From LopHoc,LichHoc
-			Where LopHoc.ThuocKhoaHoc=@TheoKhoaHoc and LichHoc.Buoi=@BuoiHoc 
-			and LopHoc.MaLop=LichHoc.MaLop and DATEDIFF(day, GETDATE(), LichHoc.NgayHoc)>=0
-			and LichHoc.MaLop!=@MaLop)
-GO
-
--- Hàm lấy Khóa học của 1 lớp học 
-Create function LayKhoaLH(@MaLop int)
-returns int
-as
-begin
-	declare @MaKhoaHoc int
-	Select @MaKhoaHoc=ThuocKhoaHoc
-	From LopHoc
-	Where MaLop=@MaLop
-	return @MaKhoaHoc
-end
-GO
-
--- Hàm Kiểm tra buổi học bù đã được đăng ký chưa
-Create function KtraHocBuCoTonTai(@maHocVien int, @maLop int, @buoi int)
-returns int
-as
-begin
-	declare @hocBu int
-	if(Exists(Select * From Vang Where MaHocVien=@maHocVien and MaLop=@maLop and Buoi=@buoi))
-	begin
-		Select @hocBu=HocBu From Vang Where MaHocVien=@maHocVien and MaLop=@maLop and Buoi=@buoi
-		return @hocBu
-	end
-	return -1
-end
-GO
-
--- Thủ tục khi nhấn Lưu đăng ký học bù: nếu chưa Đk thì thêm, ngược lại cập nhật
-Create proc ThemVaCapNhatHocBu @maHocVien int, @maLop int, @buoi int, @hocBu int 
-as
-begin
-	if((Select dbo.KtraHocBuCoTonTai(@maHocVien,@maLop,@buoi))!=-1)
-	begin
-		Update Vang Set HocBu=@hocBu Where MaHocVien=@maHocVien and MaLop=@maLop and Buoi=@buoi
-	end
-	else
-	begin
-		Insert into Vang values(@maHocVien,@maLop,@buoi,@hocBu)
-	end
-end
-GO
-
--- Thủ tục Hủy bỏ việc đăng ký học bù
-Create proc HuyBoHocBu(@maHocVien int, @maLop int, @buoi int)
-as
-begin
-	Delete From Vang Where MaHocVien=@maHocVien and MaLop=@maLop and Buoi=@buoi
-end
-GO
-
--- Thủ tục lấy số buổi học của 1 lớp
-Create proc SoBuoiHoc @maLop int
-as
-begin
-	Select KhoaHoc.SoBuoi From LopHoc,KhoaHoc 
-    Where LopHoc.ThuocKhoaHoc=KhoaHoc.MaKhoaHoc and
-		  LopHoc.MaLop= @maLop
-end
-GO
-
----------------------------------------------------------------------------------------------------------------------
--- Thủ tục  xử lý Expense
----------------------------------------------------------------------------------------------------------------------
-
--- Thủ tục lấy ra danh sách học viên chưa thanh toán học phí theo khóa học
-CREATE PROC HocVienExpenseByCourse
-@tenkhoahoc NVARCHAR(30)
-AS
-BEGIN
-    SELECT lh.MaLop AS N'Mã Lớp Học',dk.MaHocVien AS N'Mã Học Viên', hv.HoTen AS N'Họ và Tên', hv.SDT AS N'Số Điện Thoại' , kh.TenKhoaHoc AS N'Tên Khóa Học' , lh.NgayHocTrongTuan AS N'Ngày Học', dk.TrangThaiThanhToan AS N'Thanh Toán'
-	FROM dbo.HocVien hv
-	INNER JOIN dbo.DangKy dk ON dk.MaHocVien = hv.MaHocVien
-	INNER JOIN dbo.LopHoc lh ON lh.MaLop = dk.MaLop
-	INNER JOIN dbo.KhoaHoc kh ON kh.MaKhoaHoc = lh.ThuocKhoaHoc
-	WHERE kh.TenKhoaHoc = @tenkhoahoc AND dk.TrangThaiThanhToan = 0
-	ORDER BY lh.MaLop ASC
-END
-GO
-
--- Thủ tục lấy ra danh sách học viên chưa thanh toán học phí
-CREATE PROC HocVienExpense
-AS
-BEGIN
-    SELECT lh.MaLop AS N'Mã Lớp Học',dk.MaHocVien AS N'Mã Học Viên', hv.HoTen AS N'Họ và Tên', hv.SDT AS N'Số Điện Thoại' , kh.TenKhoaHoc AS N'Tên Khóa Học' , lh.NgayHocTrongTuan AS N'Ngày Học', dk.TrangThaiThanhToan AS N'Thanh Toán'
-	FROM dbo.HocVien hv
-	INNER JOIN dbo.DangKy dk ON dk.MaHocVien = hv.MaHocVien
-	INNER JOIN dbo.LopHoc lh ON lh.MaLop = dk.MaLop
-	INNER JOIN dbo.KhoaHoc kh ON kh.MaKhoaHoc = lh.ThuocKhoaHoc
-	WHERE dk.TrangThaiThanhToan = 0
-	ORDER BY lh.MaLop ASC
-END
-GO
-
-
--- Thu tuc update thanh toan cua ban DangKy
-
-create proc UpdateExpense
-@mahocvien int,
-@malop int,
-@trangthai bit
-as
-begin
-	update DangKy set TrangThaiThanhToan = @trangthai where MaHocVien = @mahocvien and MaLop = @malop
-end
-go
 
 ---------------------------------------------------------------------------------------------------------------------------------------------
 --NHẬP DỮ LIỆU
