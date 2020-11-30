@@ -1017,6 +1017,18 @@ END
 GO
 
 
+-- Thu tuc update thanh toan cua ban DangKy
+
+create proc UpdateExpense
+@mahocvien int,
+@malop int,
+@trangthai bit
+as
+begin
+	update DangKy set TrangThaiThanhToan = @trangthai where MaHocVien = @mahocvien and MaLop = @malop
+end
+go
+
 ---------------------------------------------------------------------------------------------------------------------------------------------
 --NHẬP DỮ LIỆU
 --------------------------------------------------------------------------------------------------------------------------------------------
