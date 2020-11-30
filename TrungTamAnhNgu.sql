@@ -1,4 +1,4 @@
-﻿CREATE DATABASE TrungTamAnhNgu
+CREATE DATABASE TrungTamAnhNgu
 GO
 
 USE TrungTamAnhNgu
@@ -1238,4 +1238,63 @@ INSERT dbo.Vang VALUES  ( 11, 2, 8, 1)
 INSERT dbo.Vang VALUES  ( 15, 6, 9, NULL)
 INSERT dbo.Vang VALUES  ( 13, 3, 9, 5)
 INSERT dbo.Vang VALUES  ( 20, 1, 10, 2)
+GO
+
+USE TrungTamAnhNgu
+GO
+
+-- Tạo quyền cho Giáo Viên
+CREATE ROLE role_giaovien
+GRANT SELECT, UPDATE ON dbo.GiaoVien TO role_giaovien
+GRANT SELECT, UPDATE ON dbo.Vang TO role_giaovien
+GRANT SELECT ON dbo.LichHoc TO role_giaovien
+GRANT SELECT ON dbo.PhongHoc TO role_giaovien
+GRANT SELECT ON dbo.LopHoc TO role_giaovien
+GRANT SELECT ON dbo.DangKy TO role_giaovien
+GRANT SELECT ON dbo.HocVien TO role_giaovien
+GO
+
+-- Tạo quyền cho Học Sinh
+CREATE ROLE role_hocsinh
+GRANT SELECT ON dbo.Vang TO role_hocsinh
+GRANT SELECT ON dbo.LichHoc TO role_hocsinh
+GRANT SELECT ON dbo.PhongHoc TO role_hocsinh
+GRANT SELECT ON dbo.LopHoc TO role_hocsinh
+GRANT SELECT,INSERT,UPDATE ON dbo.DangKy TO role_hocsinh
+GRANT SELECT,UPDATE ON dbo.HocVien TO role_hocsinh
+GRANT SELECT ON dbo.KhoaHoc TO role_hocsinh
+GO
+
+--STORE PROCEDURE Phân Quyền
+ALTER PROC phanQuyen (@username VARCHAR(32), @pass VARCHAR(32), @type INT)
+AS BEGIN
+	DECLARE @sql VARCHAR(max)
+	IF (@type = 3) --Giáo viên
+	BEGIN 
+		SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
+		EXEC (@sql) 
+		SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
+		EXEC (@sql) 
+		SET @sql= CONCAT('sp_addrolemember', '''role_giaovien''', '''', @username, '''')
+		EXEC (@sql)
+	END 
+	ELSE IF (@type = 4) --Học Sinh
+	BEGIN 
+		SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
+		EXEC (@sql) 
+		SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
+		EXEC (@sql) 
+		SET @sql= CONCAT('sp_addrolemember', '''role_hocsinh''', '''', @username, '''')
+		EXEC (@sql)
+	END 
+	ELSE IF (@type = 1) --Admin
+	BEGIN 
+		SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
+		EXEC (@sql) 
+		SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
+		EXEC (@sql) 
+		SET @sql= CONCAT('sp_', '''db_owner''', '''', @username, '''')
+		EXEC (@sql)
+	END 
+END
 GO
