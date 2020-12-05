@@ -113,6 +113,8 @@ BEGIN
 		WHERE MaGiaoVien = @Ma
 		OR MaHocVien = @Ma
 	END
+	IF (@date IS NULL)
+		SET @date = GETDATE()
 	SET @date = DATEADD(DAY, 7 - DATEPART(dw, @date), @date) 
 	RETURN @date
 END
@@ -826,6 +828,345 @@ BEGIN
 	UPDATE DangKy SET TrangThaiThanhToan = @trangthai WHERE MaHocVien = @mahocvien and MaLop = @malop
 END
 GO
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC GetSession 3
+CREATE PROC GetSession (@iDClass INT)
+AS
+BEGIN
+	SELECT Buoi 
+	FROM dbo.LichHoc 
+	WHERE NgayHoc = CONVERT(DATE, GETDATE()) 
+	AND MaLop = @iDClass
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC GetNameCource 1
+CREATE PROC GetNameCource (@iDClass INT)
+AS
+BEGIN
+	DECLARE @iDCource INT
+	SET @iDCource = dbo.LayMaKhoahoc(@iDClass)
+	SELECT TenKhoaHoc 
+	FROM KhoaHoc 
+	WHERE MaKhoaHoc = @iDCource
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC GetIDClass 1, 2
+CREATE PROC GetIDClass (@iDTeacher INT, @shift INT)
+AS
+BEGIN
+	SELECT LopHoc.MaLop
+	FROM dbo.LichHoc, dbo.LopHoc 
+	WHERE NgayHoc = CONVERT(DATE, GETDATE())
+	AND MaGiaoVien = @iDTeacher
+	AND LichHoc.MaLop = LopHoc.MaLop 
+	AND CaHoc = @shift
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC CheckAbsent 1, 1, 2
+CREATE PROC CheckAbsent (@iDClass INT, @session INT, @iDStudent INT)
+AS
+BEGIN
+	SELECT COUNT(*) 
+	FROM dbo.Vang 
+	WHERE MaLop = @iDClass
+	AND Buoi = @session
+	AND MaHocVien = @iDStudent
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC InsertAbsent 1, 1, 1
+CREATE PROC InsertAbsent (@iDClass INT, @session INT)
+AS
+BEGIN
+	DELETE dbo.Vang 
+	WHERE MaLop = @iDClass
+	AND Buoi = @session
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC GetListClasses 4
+CREATE PROC GetListClasses (@type INT) -- 0 = lấy All, 1 = 2-4-6, 2 = 3-5-7
+AS
+BEGIN
+	IF (@type = 0)
+		SELECT * FROM dbo.LopHoc
+	ELSE IF (@type = 1)
+		SELECT * FROM dbo.LopHoc WHERE NgayHocTrongTuan = '2-4-6'
+	ELSE
+		SELECT * FROM dbo.LopHoc WHERE NgayHocTrongTuan = '3-5-7'
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC GetListLikeClasses 0, '2'
+CREATE PROC GetListLikeClasses (@type INT, @likeName VARCHAR(30))
+AS
+BEGIN
+	DECLARE @sql VARCHAR(max)
+	IF (@type = 0)
+		SET @sql = 'SELECT * FROM dbo.LopHoc WHERE ThuocKhoaHoc LIKE ''%' + @likeName + '%'''
+	ELSE IF (@type = 1)
+		SET @sql = 'SELECT * FROM dbo.LopHoc WHERE NgayHocTrongTuan = ''2-4-6'' AND ThuocKhoaHoc LIKE ''%' + @likeName + '%'''
+	ELSE
+		SET @sql = 'SELECT * FROM dbo.LopHoc WHERE NgayHocTrongTuan = ''3-5-7'' AND ThuocKhoaHoc LIKE ''%' + @likeName + '%'''
+	EXEC (@sql)
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC UpdateClasses 2, 20
+CREATE PROC UpdateClasses (@iD INT, @number INT)
+AS
+BEGIN
+	UPDATE dbo.LopHoc 
+	SET SoHocVienDuKien=@number 
+	WHERE MaLop= @iD
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC InsertClass 20, 30, 2, '2-4-6', 2
+CREATE PROC InsertClass (@iD INT, @number INT, @shift INT, @DOW VARCHAR(5), @course INT)
+AS 
+BEGIN
+	INSERT dbo.LopHoc 
+	VALUES  (@iD, @number, @shift , @DOW, @course)
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC GetNameCource_ 1
+CREATE PROC GetNameCource_ (@ID INT)
+AS
+BEGIN
+	SELECT TenKhoaHoc 
+	FROM dbo.KhoaHoc 
+	WHERE MaKhoaHoc = @ID
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC GetListCource
+CREATE PROC GetListCource 
+AS
+BEGIN
+	SELECT MaKhoaHoc 
+	FROM dbo.KhoaHoc
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC GetListCources 1
+CREATE PROC GetListCources (@type INT) -- 0 = lấy All, 1 = 2-4-6, 2 = 3-5-7
+AS
+BEGIN
+	IF (@type = 0)
+		SELECT * FROM dbo.KhoaHoc
+	ELSE IF (@type = 1)
+		SELECT * FROM dbo.KhoaHoc WHERE TrangThai = 1
+	ELSE
+		SELECT * FROM dbo.KhoaHoc WHERE TrangThai = 0
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC GetListLikeCource 1, 'a'
+CREATE PROC GetListLikeCource (@type INT, @likeName VARCHAR(30))
+AS
+BEGIN
+	DECLARE @sql VARCHAR(max)
+	IF (@type = 0)
+		SET @sql = 'SELECT * FROM dbo.KhoaHoc WHERE TenKhoaHoc LIKE ''%' + @likeName + '%'''
+	ELSE IF (@type = 1)
+		SET @sql = 'SELECT * FROM dbo.KhoaHoc WHERE TrangThai = 1 AND  TenKhoaHoc LIKE ''%' + @likeName + '%'''
+	ELSE
+		SET @sql = 'SELECT * FROM dbo.KhoaHoc WHERE TrangThai = 0 AND  TenKhoaHoc LIKE ''%' + @likeName + '%'''
+	EXEC (@sql)
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC UpdateCource 1, N'nam', 23423423, 34
+CREATE PROC UpdateCource (@iD INT, @name NVARCHAR(50), @tuition INT, @no INT)
+AS
+BEGIN
+	UPDATE dbo.KhoaHoc 
+	SET TenKhoaHoc = @name, 
+		HocPhi = @tuition, 
+		SoBuoi = @no 
+	WHERE MaKhoaHoc = @iD
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC UpdateStatusCource 1, 1
+CREATE PROC UpdateStatusCource (@iD INT, @status INT)
+AS
+BEGIN
+	UPDATE dbo.KhoaHoc 
+	SET TrangThai = @status
+	WHERE MaKhoaHoc = @iD
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC InsertCource 1, N'nam', 1, 1
+CREATE PROC InsertCource (@iD INT, @name NVARCHAR(50), @no INT, @tuition INT)
+AS
+BEGIN
+	INSERT dbo.KhoaHoc (MaKhoaHoc, TenKhoaHoc, SoBuoi, HocPhi) 
+	VALUES  (@iD , @name, @no, @tuition)
+END
+GO
+
+-- Store Procedure Attendance
+CREATE PROC GetClassList (@idClass VARCHAR(10),@session VARCHAR(10))
+AS BEGIN
+	SELECT * FROM dbo.DanhSachLopTheobuoi(@idClass, @session)
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- Enroll In Class
+CREATE PROC GetListClass (@id INT, @shift VARCHAR(10), @DOW VARCHAR(6), @idCou INT)
+AS BEGIN
+	IF (@shift = 'All' AND @DOW = 'All' AND @idCou = 0 )
+	BEGIN
+		SELECT * FROM dbo.DanhSachLopDangKy
+	END
+    ELSE IF (@shift = 'All' AND @DOW = 'All')
+	BEGIN
+		SELECT * FROM dbo.DanhSachLopDangKy WHERE ThuocKhoaHoc = @idcou
+	END
+	ELSE IF (@shift = 'All' AND @idCou = 0)
+	BEGIN
+		SELECT * FROM dbo.DanhSachLopDangKy WHERE NgayHocTrongTuan = @DOW
+	END
+	ELSE IF (@DOW = 'All' AND @idCou = 0)
+	BEGIN
+		SELECT * FROM dbo.DanhSachLopDangKy WHERE CaHoc = @shift
+	END
+	ELSE IF (@shift = 'All')
+	BEGIN
+		SELECT * FROM dbo.DanhSachLopDangKy WHERE  NgayHocTrongTuan = @DOW AND ThuocKhoaHoc = @idCou
+	END
+	ELSE IF (@idCou = 0)
+	BEGIN
+		SELECT * FROM dbo.DanhSachLopDangKy WHERE CaHoc = @shift AND ThuocKhoaHoc = @idCou
+	END
+	ELSE IF (@idCou = 0)
+	BEGIN
+		SELECT * FROM dbo.DanhSachLopDangKy WHERE CaHoc = @shift AND ThuocKhoaHoc = @idCou
+	END
+	ELSE SELECT * FROM dbo.DanhSachLopDangKy WHERE CaHoc = @shift AND NgayHocTrongTuan = @DOW AND ThuocKhoaHoc = @idCou
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+--GET Enrolled 
+CREATE PROC GetEnrolled (@id INT, @idCou INT)
+AS BEGIN 
+	SELECT COUNT(*) 
+	FROM dbo.DangKy 
+	WHERE MaHocVien = @id 
+	AND MaLop = @idCou	
+END
+GO
+------------------------------------------------------------------------------------------------------------------------------------------
+-- GET List Cources Name
+CREATE PROC GetListCourceName 
+AS BEGIN
+	SELECT MaKhoaHoc, TenKhoaHoc 
+	FROM dbo.KhoaHoc 
+END
+GO
+------------------------------------------------------------------------------------------------------------------------------------------
+--Delete Enroll
+--EXEC DeleteEnroll 
+CREATE PROC DeleteEnroll (@id INT, @idCla INT)
+AS BEGIN 
+	DELETE dbo.DangKy
+	WHERE MaHocVien = @id 
+	AND MaLop = @idCla
+END
+GO
+------------------------------------------------------------------------------------------------------------------------------------------
+--Insert Enroll
+CREATE PROC InsertEnroll (@id INT, @idCla INT)
+AS BEGIN 
+	INSERT dbo.DangKy 
+	VALUES  (@id, @idCla, 0)
+END
+GO
+------------------------------------------------------------------------------------------------------------------------------------------
+--GetListNameCourse
+CREATE PROC GetListNameCourse
+AS BEGIN 
+	SELECT TenKhoaHoc, MaKhoaHoc 
+	FROM dbo.KhoaHoc
+END 
+GO  
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC CheckEnroll 1, 1
+CREATE PROC CheckEnroll (@iDStudent INT, @iDClass INT)
+AS
+BEGIN
+	SELECT COUNT(*) 
+	FROM dbo.DangKy
+	WHERE MaHocVien = @iDStudent 
+	AND MaLop = @iDClass
+END
+GO
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC GetListNameCource
+CREATE PROC GetListNameCource
+AS
+BEGIN
+	SELECT TenKhoaHoc, MaKhoaHoc 
+	FROM dbo.KhoaHoc
+END
+GO
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC CheckClassEnable 2
+CREATE PROC CheckClassEnable (@iDClass INT)
+AS
+BEGIN
+	SELECT COUNT(*) 
+	FROM (SELECT MaLop 
+		  FROM dbo.LichHoc 
+		  WHERE MaLop = @iDClass 
+		  GROUP BY MaLop 
+		  HAVING MIN(NgayHoc) >= GETDATE()) AS Q
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+-- Thủ tục lấy tất cả mã lớp của Học viên
+CREATE PROC LayLopHocHV @maHocVien INT
+AS
+BEGIN
+	SELECT MaLop 
+	FROM DangKy 
+	WHERE MaHocVien=@maHocVien
+END
+GO
+------------------------------------------------------------------------------------------------------------------------------------------
+CREATE PROC LayID @user VARCHAR(32)
+AS
+BEGIN
+	SELECT IDTaiKhoan 
+	FROM Account 
+	WHERE TaiKhoan = @user
+END
+GO
 
 ------------------------------------------------------------------------------------------------------------
 --TRIGGER
@@ -1238,4 +1579,63 @@ INSERT dbo.Vang VALUES  ( 11, 2, 8, 1)
 INSERT dbo.Vang VALUES  ( 15, 6, 9, NULL)
 INSERT dbo.Vang VALUES  ( 13, 3, 9, 5)
 INSERT dbo.Vang VALUES  ( 20, 1, 10, 2)
+GO
+
+---------------------------------------------------------------------------------------------------------------------------------------------
+--Phần Quyền
+---------------------------------------------------------------------------------------------------------------------------------------------
+-- Tạo quyền cho Giáo Viên
+CREATE ROLE role_giaovien
+GRANT SELECT, UPDATE ON dbo.GiaoVien TO role_giaovien
+GRANT SELECT, UPDATE ON dbo.Vang TO role_giaovien
+GRANT SELECT ON dbo.LichHoc TO role_giaovien
+GRANT SELECT ON dbo.PhongHoc TO role_giaovien
+GRANT SELECT ON dbo.LopHoc TO role_giaovien
+GRANT SELECT ON dbo.DangKy TO role_giaovien
+GRANT SELECT ON dbo.HocVien TO role_giaovien
+GO
+
+-- Tạo quyền cho Học Sinh
+CREATE ROLE role_hocsinh
+GRANT SELECT ON dbo.Vang TO role_hocsinh
+GRANT SELECT ON dbo.LichHoc TO role_hocsinh
+GRANT SELECT ON dbo.PhongHoc TO role_hocsinh
+GRANT SELECT ON dbo.LopHoc TO role_hocsinh
+GRANT SELECT,INSERT,UPDATE ON dbo.DangKy TO role_hocsinh
+GRANT SELECT,UPDATE ON dbo.HocVien TO role_hocsinh
+GRANT SELECT ON dbo.KhoaHoc TO role_hocsinh
+GO
+
+--STORE PROCEDURE Phân Quyền
+CREATE PROC phanQuyen (@username VARCHAR(32), @pass VARCHAR(32), @type INT)
+AS BEGIN
+	DECLARE @sql VARCHAR(max)
+	IF (@type = 3) --Giáo viên
+	BEGIN 
+		SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
+		EXEC (@sql) 
+		SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
+		EXEC (@sql) 
+		SET @sql= CONCAT('sp_addrolemember', '''role_giaovien'',', '''', @username, '''')
+		EXEC (@sql)
+	END 
+	ELSE IF (@type = 4) --Học Sinh
+	BEGIN 
+		SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
+		EXEC (@sql) 
+		SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
+		EXEC (@sql) 
+		SET @sql= CONCAT('sp_addrolemember', '''role_hocsinh'',', '''', @username, '''')
+		EXEC (@sql)
+	END 
+	ELSE IF (@type = 1) --Admin
+	BEGIN 
+		SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
+		EXEC (@sql) 
+		SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
+		EXEC (@sql) 
+		SET @sql= CONCAT('sp_addrolemember', '''db_owner'',', '''', @username, '''')
+		EXEC (@sql)
+	END 
+END
 GO
