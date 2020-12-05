@@ -1,4 +1,4 @@
-﻿CREATE DATABASE TrungTamAnhNgu
+CREATE DATABASE TrungTamAnhNgu
 GO
 
 USE TrungTamAnhNgu
