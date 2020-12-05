@@ -845,7 +845,6 @@ BEGIN
 	SELECT IDTaiKhoan FROM Account WHERE TaiKhoan = @user
 END
 
-EXEC LayID 'HV00001'
 
 ------------------------------------------------------------------------------------------------------------
 --TRIGGER
