@@ -1140,11 +1140,11 @@ CREATE PROC CheckClassEnable (@iDClass INT)
 AS
 BEGIN
 	SELECT COUNT(*) 
-	FROM (SELECT MaLop 
+	FROM (SELECT MaLop
 		  FROM dbo.LichHoc 
-		  WHERE MaLop = @iDClass 
+		  WHERE MaLop = @iDClass
 		  GROUP BY MaLop 
-		  HAVING MIN(NgayHoc) >= GETDATE()) AS Q
+		  HAVING MIN(NgayHoc) >= CONVERT(DATE, GETDATE())) AS Q
 END
 GO
 
@@ -1165,6 +1165,247 @@ BEGIN
 	SELECT IDTaiKhoan 
 	FROM Account 
 	WHERE TaiKhoan = @user
+END
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+--GetScheduleOfWeek
+CREATE PROC GetScheduleOfWeek (@IDUser VARCHAR(5) NULL , @dateStart VARCHAR(12) , @dateEnd VARCHAR(12))
+AS
+BEGIN
+	DECLARE @sql VARCHAR(MAX)
+	IF @IDUser != 0
+		SET @sql = CONCAT('SELECT * FROM Lich_',@IDUser, ' WHERE NgayHoc >= ''', @dateStart, ''' AND NgayHoc <= ''', @dateEnd, '''')
+	ELSE
+		SET @sql = CONCAT('SELECT * FROM Lich_ WHERE NgayHoc >= ''', @dateStart, ''' AND NgayHoc <= ''', @dateEnd, '''')
+
+	EXEC(@sql)
+END
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- GetSchdule
+CREATE PROC GetSchedule (@iDClass VARCHAR(10),
+@day VARCHAR(15),
+@session VARCHAR(50),
+@allDay BIT)
+AS
+BEGIN
+    DECLARE @sql VARCHAR(MAX), @exec VARCHAR(MAX)
+
+	SET @sql = 'SELECT * FROM dbo.Lich_ WHERE NgayHoc >= GETDATE()'
+
+	IF @allDay = 'False' AND @session = 'All' AND @iDClass = 'All'
+		SET @exec =  @sql
+
+	ELSE IF @allDay = 'False' AND @iDClass = 'All'
+		SET @exec = CONCAT(@sql, ' AND Buoi= ', @session)
+
+	ELSE IF @allDay = 'False' AND @session = 'All'
+		SET @exec = CONCAT(@sql , ' AND MaLop = ', @iDClass)
+
+	ELSE IF @iDClass = 'All' AND @session = 'All'
+		SET @exec = CONCAT(@sql , ' AND NgayHoc = ''', @day, '''')
+
+	ELSE IF @allDay = 'False'
+		SET @exec = CONCAT(@sql , ' AND MaLop = ', @iDClass, ' AND Buoi = ', @session)
+
+	ELSE IF @iDClass = 'All'
+		SET @exec = CONCAT(@sql, ' AND NgayHoc = ''', @day, '''' , ' AND Buoi = ', @session)
+
+	ELSE IF @session = 'All'
+		SET @exec = CONCAT(@sql, ' AND NgayHoc = ''', @day, '''' , ' AND MaLop = ', @iDClass)
+
+	ELSE
+		SET @exec = CONCAT(@sql, ' AND NgayHoc = ''', @day, '''' , ' AND MaLop = ', @iDClass, ' AND Buoi = ', @session)
+
+	EXEC(@exec)
+END
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+--GetListClassSche
+CREATE PROC GetListClassSche
+AS
+BEGIN
+    SELECT CONVERT(VARCHAR(10), MaLop) AS MaLop FROM dbo.LopHoc
+END
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- GetListSession
+CREATE PROC GetListSession(@iDClass VARCHAR(10))
+AS
+BEGIN
+	DECLARE @sql VARCHAR(MAX)
+    IF @iDClass = 'All'
+		SELECT MAX(Buoi) FROM dbo.Lich_
+
+	ELSE
+	BEGIN
+	    SET @sql = CONCAT('SELECT CONVERT(VARCHAR(10), Buoi) AS Buoi FROM dbo.Lich_ WHERE MaLop = ', @iDClass)
+		EXEC(@sql)
+	END	
+END
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- DeleteSchedule
+CREATE PROC DeleteSchedule( @iDClass INT , @session int)
+AS
+BEGIN
+    DELETE dbo.LichHoc WHERE MaLop = @iDClass AND Buoi = @session
+END
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- GetHocVien
+CREATE PROC GetHocVien (@MaHocVien INT)
+AS
+BEGIN
+	SELECT * 
+	FROM dbo.HocVien INNER JOIN dbo.Account
+	ON Account.IDTaiKhoan = HocVien.MaHocVien
+	WHERE MaHocVien = @MaHocVien
+END
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- GetGiaoVien
+CREATE PROC GetGiaoVien(@MaGiaoVien INT)
+AS
+BEGIN
+	SELECT * 
+	FROM dbo.GiaoVien INNER JOIN dbo.Account
+	ON Account.IDTaiKhoan = GiaoVien.MaGiaoVien
+	WHERE MaGiaoVien = @MaGiaoVien
+END
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- CheckUserName for Teacher , Student
+CREATE PROC CheckUserName(@userName VARCHAR(32))
+AS
+BEGIN
+    SELECT COUNT(*) FROM dbo.Account WHERE TaiKhoan = @userName
+END
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- GetListTeachers
+CREATE PROC GetListTeachers
+AS
+BEGIN
+    SELECT * FROM dbo.GiaoVien
+END
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+--GetListLikeTeacher
+CREATE PROC GetListLikeTeacher(@likeName NVARCHAR(50))
+AS
+BEGIN
+	DECLARE @sql VARCHAR(MAX)
+	SET @sql = CONCAT('SELECT * FROM dbo.GiaoVien WHERE HoTen LIKE ','''' , '%', @likeName , '%', '''')
+	EXEC(@sql)
+END
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- InsertTeacher
+CREATE PROC InsertTeacher(@id int, 
+@userName VARCHAR(32),
+@pass VARCHAR(32),
+@name NVARCHAR(50),
+@phoneNumber VARCHAR(10),
+@address NVARCHAR(50),
+@salary int)
+AS
+BEGIN
+    INSERT INTO dbo.Account VALUES(@id , @userName , @pass , 3)
+	INSERT INTO dbo.GiaoVien VALUES(@id , @name , @phoneNumber, @address, @salary)
+END
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- UpdateTeacher
+ALTER PROC UpdateTeacher(@id INT , 
+@name NVARCHAR(50),
+@phoneNumber VARCHAR(10),
+@address NVARCHAR(50),
+@salary INT,
+@pass VARCHAR(32))
+AS
+BEGIN
+    UPDATE dbo.GiaoVien
+	SET HoTen = @name , SDT = @phoneNumber , DiaChi = @address, LuongCoBan = @salary
+	WHERE MaGiaoVien = @id
+	IF (@pass != '0')
+	BEGIN
+		UPDATE dbo.Account
+		SET MatKhau = @pass
+		WHERE IDTaiKhoan = @id
+	END
+END
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+--GetListStudents
+CREATE PROC GetListStudents
+AS
+BEGIN
+    SELECT * FROM dbo.HocVien
+END
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+--  GetListLikeStudent
+CREATE PROC GetListLikeStudent(@likeName NVARCHAR(50))
+AS
+BEGIN
+	DECLARE @sql VARCHAR(MAX)
+	SET @sql = CONCAT(' SELECT * FROM dbo.HocVien WHERE HoTen LIKE ','''' , '%', @likeName , '%', '''')
+	EXEC(@sql)
+END
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- InsertStudent
+CREATE PROC InsertStudent(@id int, 
+@userName VARCHAR(32),
+@pass VARCHAR(32),
+@name NVARCHAR(50),
+@phoneNumber VARCHAR(10),
+@address NVARCHAR(50),
+@email VARCHAR(50),
+@birthDate VARCHAR(12))
+AS
+BEGIN
+    INSERT INTO dbo.Account VALUES(@id , @userName , @pass , 4)
+	INSERT INTO dbo.HocVien VALUES(@id , @name , @phoneNumber, @address, @email, @birthDate)
+END
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+--UpdateStudent
+CREATE PROC UpdateStudent(@id INT , 
+@name NVARCHAR(50),
+@phoneNumber VARCHAR(10),
+@address NVARCHAR(50),
+@email VARCHAR(50),
+@birthDate VARCHAR(12),
+@pass VARCHAR(32))
+AS
+BEGIN
+    UPDATE dbo.HocVien 
+	SET HoTen = @name , SDT = @phoneNumber , DiaChi = @address, Email = @email, NgaySinh = @birthDate
+	WHERE MaHocVien = @id
+	IF (@pass != '0')
+	BEGIN 
+		UPDATE dbo.Account
+		SET MatKhau = @pass
+		WHERE IDTaiKhoan = @id
+	END
 END
 GO
 
@@ -1597,13 +1838,26 @@ GO
 
 -- Tạo quyền cho Học Sinh
 CREATE ROLE role_hocsinh
-GRANT SELECT ON dbo.Vang TO role_hocsinh
+GRANT SELECT, UPDATE ON dbo.Vang TO role_hocsinh
 GRANT SELECT ON dbo.LichHoc TO role_hocsinh
 GRANT SELECT ON dbo.PhongHoc TO role_hocsinh
 GRANT SELECT ON dbo.LopHoc TO role_hocsinh
 GRANT SELECT,INSERT,UPDATE ON dbo.DangKy TO role_hocsinh
 GRANT SELECT,UPDATE ON dbo.HocVien TO role_hocsinh
 GRANT SELECT ON dbo.KhoaHoc TO role_hocsinh
+GO
+
+-- Tạo quyền cho Khách
+CREATE LOGIN Khach WITH PASSWORD = '1@34a'
+GO
+CREATE USER Khach FOR LOGIN Khach
+GO
+GRANT SELECT ON dbo.KhoaHoc TO Khach
+GRANT SELECT ON dbo.LopHoc TO Khach
+GRANT SELECT ON dbo.GiaoVien TO Khach
+GRANT SELECT ON dbo.LichHoc TO Khach
+REVOKE EXEC ON GetListNameCource TO Khach
+GRANT EXEC ON LopTheoKhoaHoc TO Khach
 GO
 
 --STORE PROCEDURE Phân Quyền
