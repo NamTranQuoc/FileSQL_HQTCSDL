@@ -90,6 +90,7 @@ CREATE TABLE Vang
 	PRIMARY KEY (MaHocVien, MaLop, Buoi)
 )
 GO
+
 ----------------------------------------------------------------------------------------------------------------------
 --FUNCTION
 ----------------------------------------------------------------------------------------------------------------------
@@ -1329,7 +1330,7 @@ GO
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- UpdateTeacher
-ALTER PROC UpdateTeacher(@id INT , 
+CREATE PROC UpdateTeacher(@id INT , 
 @name NVARCHAR(50),
 @phoneNumber VARCHAR(10),
 @address NVARCHAR(50),
@@ -1406,6 +1407,45 @@ BEGIN
 		SET MatKhau = @pass
 		WHERE IDTaiKhoan = @id
 	END
+END
+GO
+
+---------------------------------------------------------------------------------------------------------------------------------------------
+--STORE PROCEDURE Phân Quyền
+CREATE PROC phanQuyen (@username VARCHAR(32), @pass VARCHAR(32), @type INT)
+AS BEGIN
+	DECLARE @sql VARCHAR(max)
+	IF ((SELECT COUNT(*) FROM master.sys.syslogins where name = @username) > 0)
+		EXEC ('DROP LOGIN ' + @username)
+	IF EXISTS (SELECT name FROM TrungTamAnhNgu.sys.database_principals WHERE type = N'S' AND name = @username)  
+		EXEC ('DROP USER ' + @username)
+	IF (@type = 3) --Giáo viên
+	BEGIN 
+		SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
+		EXEC (@sql) 
+		SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
+		EXEC (@sql) 
+		SET @sql= CONCAT('sp_addrolemember ', '''role_giaovien'',', '''', @username, '''')
+		EXEC (@sql)
+	END 
+	ELSE IF (@type = 4) --Học Sinh
+	BEGIN 
+		SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
+		EXEC (@sql) 
+		SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
+		EXEC (@sql) 
+		SET @sql= CONCAT('sp_addrolemember ', '''role_hocsinh'',', '''', @username, '''')
+		EXEC (@sql)
+	END 
+	ELSE IF (@type = 1) --Admin
+	BEGIN 
+		SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
+		EXEC (@sql) 
+		SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
+		EXEC (@sql) 
+		SET @sql= CONCAT('sp_addrolemember ', '''db_owner'',', '''', @username, '''')
+		EXEC (@sql)
+	END 
 END
 GO
 
@@ -1556,15 +1596,17 @@ ON dbo.Account
 AFTER INSERT, UPDATE
 AS
 BEGIN
-	DECLARE @pass VARCHAR(32), @id INT
-	SELECT @pass = Inserted.MatKhau, @id = Inserted.IDTaiKhoan 
+	DECLARE @pass VARCHAR(32), @id INT, @username VARCHAR(32), @type INT
+	SELECT @pass = Inserted.MatKhau, @id = Inserted.IDTaiKhoan, @type = Inserted.LoaiTaiKhoan, @username = Inserted.TaiKhoan
 	FROM Inserted
+	EXEC dbo.phanQuyen @username, @pass, @type
 	SET @pass = dbo.MaHoaMD5(@pass)
 	UPDATE dbo.Account 
 	SET MatKhau = @pass
-	WHERE IDTaiKhoan = @id
+	WHERE IDTaiKhoan = @id	
 END
 GO
+
 ----------------------------------------------------------------------------------------------------------------------------------------------
 --nếu số buổi của một khóa học tăng thì lịch tự động thêm buổi học 
 --nêu số buổi của một khóa học giảm thì lịch tự xóa buổi học
@@ -1677,6 +1719,43 @@ AS
 	FROM dbo.LopHoc, dbo.KhoaHoc, TongHocVienDaDangKyTheoLop AS T
 	WHERE KhoaHoc.MaKhoaHoc = LopHoc.ThuocKhoaHoc
 	AND dbo.LopHoc.MaLop = T.MaLop
+GO
+
+---------------------------------------------------------------------------------------------------------------------------------------------
+--Phần Quyền
+---------------------------------------------------------------------------------------------------------------------------------------------
+-- Tạo quyền cho Giáo Viên
+CREATE ROLE role_giaovien
+
+GO
+---------------------------------------------------------------------------------------------------------------------------------------------
+-- Tạo quyền cho Học Sinh
+CREATE ROLE role_hocsinh
+
+GO
+---------------------------------------------------------------------------------------------------------------------------------------------
+-- Tạo quyền cho Khách
+IF ((SELECT COUNT(*) FROM master.sys.syslogins where name = 'Khach') > 0)
+	DROP LOGIN Khach
+GO
+IF EXISTS (SELECT name FROM TrungTamAnhNgu.sys.database_principals WHERE type = N'S' AND name = 'Khach')  
+	DROP USER Khach
+GO
+CREATE LOGIN Khach WITH PASSWORD = '1@34a'
+GO
+CREATE USER Khach FOR LOGIN Khach
+GO
+GRANT EXEC ON GetListNameCource TO Khach
+GRANT EXEC ON LopTheoKhoaHoc TO Khach
+GRANT EXEC ON KienTraDangNhap TO Khach
+GRANT EXEC ON LayID TO Khach
+GRANT EXEC ON CheckUserName TO Khach
+GRANT EXEC ON TaoMaTuDong TO Khach
+GRANT EXEC ON InsertStudent TO Khach
+GRANT EXEC ON dbo.phanQuyen TO Khach
+GRANT INSERT ON dbo.Account TO Khach
+GRANT INSERT ON dbo.HocVien TO Khach
+
 GO
 
 ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -1820,76 +1899,4 @@ INSERT dbo.Vang VALUES  ( 11, 2, 8, 1)
 INSERT dbo.Vang VALUES  ( 15, 6, 9, NULL)
 INSERT dbo.Vang VALUES  ( 13, 3, 9, 5)
 INSERT dbo.Vang VALUES  ( 20, 1, 10, 2)
-GO
-
----------------------------------------------------------------------------------------------------------------------------------------------
---Phần Quyền
----------------------------------------------------------------------------------------------------------------------------------------------
--- Tạo quyền cho Giáo Viên
-CREATE ROLE role_giaovien
-GRANT SELECT, UPDATE ON dbo.GiaoVien TO role_giaovien
-GRANT SELECT, UPDATE ON dbo.Vang TO role_giaovien
-GRANT SELECT ON dbo.LichHoc TO role_giaovien
-GRANT SELECT ON dbo.PhongHoc TO role_giaovien
-GRANT SELECT ON dbo.LopHoc TO role_giaovien
-GRANT SELECT ON dbo.DangKy TO role_giaovien
-GRANT SELECT ON dbo.HocVien TO role_giaovien
-GO
-
--- Tạo quyền cho Học Sinh
-CREATE ROLE role_hocsinh
-GRANT SELECT, UPDATE ON dbo.Vang TO role_hocsinh
-GRANT SELECT ON dbo.LichHoc TO role_hocsinh
-GRANT SELECT ON dbo.PhongHoc TO role_hocsinh
-GRANT SELECT ON dbo.LopHoc TO role_hocsinh
-GRANT SELECT,INSERT,UPDATE ON dbo.DangKy TO role_hocsinh
-GRANT SELECT,UPDATE ON dbo.HocVien TO role_hocsinh
-GRANT SELECT ON dbo.KhoaHoc TO role_hocsinh
-GO
-
--- Tạo quyền cho Khách
-CREATE LOGIN Khach WITH PASSWORD = '1@34a'
-GO
-CREATE USER Khach FOR LOGIN Khach
-GO
-GRANT SELECT ON dbo.KhoaHoc TO Khach
-GRANT SELECT ON dbo.LopHoc TO Khach
-GRANT SELECT ON dbo.GiaoVien TO Khach
-GRANT SELECT ON dbo.LichHoc TO Khach
-REVOKE EXEC ON GetListNameCource TO Khach
-GRANT EXEC ON LopTheoKhoaHoc TO Khach
-GO
-
---STORE PROCEDURE Phân Quyền
-CREATE PROC phanQuyen (@username VARCHAR(32), @pass VARCHAR(32), @type INT)
-AS BEGIN
-	DECLARE @sql VARCHAR(max)
-	IF (@type = 3) --Giáo viên
-	BEGIN 
-		SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
-		EXEC (@sql) 
-		SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
-		EXEC (@sql) 
-		SET @sql= CONCAT('sp_addrolemember', '''role_giaovien'',', '''', @username, '''')
-		EXEC (@sql)
-	END 
-	ELSE IF (@type = 4) --Học Sinh
-	BEGIN 
-		SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
-		EXEC (@sql) 
-		SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
-		EXEC (@sql) 
-		SET @sql= CONCAT('sp_addrolemember', '''role_hocsinh'',', '''', @username, '''')
-		EXEC (@sql)
-	END 
-	ELSE IF (@type = 1) --Admin
-	BEGIN 
-		SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
-		EXEC (@sql) 
-		SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
-		EXEC (@sql) 
-		SET @sql= CONCAT('sp_addrolemember', '''db_owner'',', '''', @username, '''')
-		EXEC (@sql)
-	END 
-END
 GO
