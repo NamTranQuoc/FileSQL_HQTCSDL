@@ -18,5 +18,5 @@ go
 ---------------------------------------------------------------------------------------------------------------------------------------------
 -- Quyền của Khách
 --GRANT SELECT ON dbo.PhongHoc TO Khach 
-
-
+GRANT EXEC ON GetListNameCource TO Khach
+GRANT EXEC ON LopTheoKhoaHoc TO Khach
