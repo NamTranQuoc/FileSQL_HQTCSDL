@@ -1745,18 +1745,7 @@ CREATE LOGIN Khach WITH PASSWORD = '1@34a'
 GO
 CREATE USER Khach FOR LOGIN Khach
 GO
-GRANT EXEC ON GetListNameCource TO Khach
-GRANT EXEC ON LopTheoKhoaHoc TO Khach
-GRANT EXEC ON KienTraDangNhap TO Khach
-GRANT EXEC ON LayID TO Khach
-GRANT EXEC ON CheckUserName TO Khach
-GRANT EXEC ON TaoMaTuDong TO Khach
-GRANT EXEC ON InsertStudent TO Khach
-GRANT EXEC ON dbo.phanQuyen TO Khach
-GRANT INSERT ON dbo.Account TO Khach
-GRANT INSERT ON dbo.HocVien TO Khach
-
-GO
+--các quyền của khách
 
 ---------------------------------------------------------------------------------------------------------------------------------------------
 --NHẬP DỮ LIỆU
