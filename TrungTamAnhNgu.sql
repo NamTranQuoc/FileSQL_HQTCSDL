@@ -91,6 +91,10 @@ CREATE TABLE Vang
 )
 GO
 
+--biến toàn cục
+SELECT '000000' AS Pass INTO PasswordOld
+GO
+
 ----------------------------------------------------------------------------------------------------------------------
 --FUNCTION
 ----------------------------------------------------------------------------------------------------------------------
@@ -345,48 +349,6 @@ BEGIN
 									 WHERE HocBu = @MaLop AND Buoi = @Buoi) AS Q 
 				  WHERE HocVien.MaHocVien = Q.MaHocVien
 	RETURN
-END
-GO
-
-----------------------------------------------------------------------------------------------------------
--- Hàm lấy các lớp có thể học bù của 1 buổi 
-CREATE FUNCTION LayHocBu(@TheoKhoaHoc INT, @MaLop INT, @BuoiHoc INT)
-RETURNS TABLE
-AS
-	RETURN (SELECT LichHoc.MaGiaoVien,LichHoc.MaLop,LichHoc.Buoi,LichHoc.Phong,LichHoc.NgayHoc,Chon=0
-			FROM LopHoc,LichHoc
-			WHERE LopHoc.ThuocKhoaHoc=@TheoKhoaHoc and LichHoc.Buoi=@BuoiHoc 
-			and LopHoc.MaLop=LichHoc.MaLop and DATEDIFF(DAY, GETDATE(), LichHoc.NgayHoc)>=0
-			and LichHoc.MaLop!=@MaLop)
-GO
-
-----------------------------------------------------------------------------------------------------------
--- Hàm lấy Khóa học của 1 lớp học 
-CREATE FUNCTION LayKhoaLH(@MaLop INT)
-RETURNS INT
-AS
-BEGIN
-	DECLARE @MaKhoaHoc INT
-	SELECT @MaKhoaHoc=ThuocKhoaHoc
-	FROM LopHoc
-	WHERE MaLop=@MaLop
-	RETURN @MaKhoaHoc
-END
-GO
-
-----------------------------------------------------------------------------------------------------------
--- Hàm Kiểm tra buổi học bù đã được đăng ký chưa
-CREATE FUNCTION KtraHocBuCoTonTai(@maHocVien INT, @maLop INT, @buoi INT)
-RETURNS INT
-AS
-BEGIN
-	DECLARE @hocBu INT
-	if(Exists(SELECT * FROM Vang WHERE MaHocVien=@maHocVien and MaLop=@maLop and Buoi=@buoi))
-	BEGIN
-		SELECT @hocBu=HocBu FROM Vang WHERE MaHocVien=@maHocVien and MaLop=@maLop and Buoi=@buoi
-		RETURN @hocBu
-	END
-	RETURN -1
 END
 GO
 
@@ -751,41 +713,6 @@ BEGIN
 	AND LopHoc.MaLop = Q.MaLop
 END
 GO
-------------------------------------------------------------------------------------------------------------------------------------------
--- Thủ tục khi nhấn Lưu đăng ký học bù: nếu chưa Đk thì thêm, ngược lại cập nhật
-CREATE PROC ThemVaCapNhatHocBu @maHocVien INT, @maLop INT, @buoi INT, @hocBu INT 
-AS
-BEGIN
-	IF((SELECT dbo.KtraHocBuCoTonTai(@maHocVien,@maLop,@buoi))!=-1)
-	BEGIN
-		UPDATE Vang SET HocBu=@hocBu WHERE MaHocVien=@maHocVien and MaLop=@maLop and Buoi=@buoi
-	END
-	ELSE
-	BEGIN
-		INSERT INTO Vang VALUES(@maHocVien,@maLop,@buoi,@hocBu)
-	END
-END
-GO
-
-------------------------------------------------------------------------------------------------------------------------------------------
--- Thủ tục Hủy bỏ việc đăng ký học bù
-CREATE PROC HuyBoHocBu(@maHocVien INT, @maLop INT, @buoi INT)
-AS
-BEGIN
-	DELETE FROM Vang WHERE MaHocVien=@maHocVien and MaLop=@maLop and Buoi=@buoi
-END
-GO
-
-------------------------------------------------------------------------------------------------------------------------------------------
--- Thủ tục lấy số buổi học của 1 lớp
-CREATE PROC SoBuoiHoc @maLop INT
-AS
-BEGIN
-	SELECT KhoaHoc.SoBuoi FROM LopHoc,KhoaHoc 
-    WHERE LopHoc.ThuocKhoaHoc=KhoaHoc.MaKhoaHoc and
-		  LopHoc.MaLop= @maLop
-END
-GO
 
 ------------------------------------------------------------------------------------------------------------------------------------------
 -- Thủ tục lấy ra danh sách học viên chưa thanh toán học phí theo khóa học
@@ -865,19 +792,6 @@ BEGIN
 	AND MaGiaoVien = @iDTeacher
 	AND LichHoc.MaLop = LopHoc.MaLop 
 	AND CaHoc = @shift
-END
-GO
-
-------------------------------------------------------------------------------------------------------------------------------------------
---EXEC CheckAbsent 1, 1, 2
-CREATE PROC CheckAbsent (@iDClass INT, @session INT, @iDStudent INT)
-AS
-BEGIN
-	SELECT COUNT(*) 
-	FROM dbo.Vang 
-	WHERE MaLop = @iDClass
-	AND Buoi = @session
-	AND MaHocVien = @iDStudent
 END
 GO
 
@@ -1089,6 +1003,74 @@ AS BEGIN
 	FROM dbo.KhoaHoc 
 END
 GO
+
+-----------------------------------------------------------------------------------------------------------------------------------------
+--EXEC GetListClassAbsent 11
+CREATE PROC GetListClassAbsent @maHV INT
+AS BEGIN
+	SELECT DISTINCT MaLop
+	FROM dbo.Vang
+	WHERE MaHocVien = @maHV
+END
+GO
+-----------------------------------------------------------------------------------------------------------------------------------------
+--EXEC GetListSessionAbsent 11, 1
+CREATE PROC GetListSessionAbsent @maHV INT, @maLop INT
+AS BEGIN
+	SELECT Buoi
+	FROM dbo.Vang
+	WHERE MaHocVien = @maHV
+	AND MaLop = @maLop
+END
+GO
+------------------------------------------------------------------------------------------------------------------------------------------
+--EXEC GetClassAbsent 3, 23
+CREATE PROC GetClassAbsent @maLop INT, @buoi INT
+AS BEGIN
+	SELECT MaGiaoVien, MaLop, Buoi, NgayHoc, TenPhong
+	FROM dbo.LichHoc INNER JOIN dbo.PhongHoc
+	ON PhongHoc.IDPhong = LichHoc.Phong
+	WHERE buoi = @buoi
+	AND MaLop IN (SELECT MaLop
+				  FROM dbo.LopHoc
+				  WHERE ThuocKhoaHoc = (SELECT dbo.LayMaKhoahoc(@maLop)))
+	AND MaLop != @maLop
+	AND NgayHoc > GETDATE()
+END
+GO
+------------------------------------------------------------------------------------------------------------------------------------------
+CREATE PROC CheckAbsent @maHV INT, @maLop INT, @buoi INT
+AS BEGIN
+	SELECT COUNT(HocBu)
+	FROM dbo.Vang
+	WHERE MaHocVien = @maHV
+	AND MaLop = @maLop
+	AND Buoi = @buoi
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+CREATE PROC EnrollAbsent @maHV INT, @maLop INT, @buoi INT, @hocBu INT
+AS BEGIN
+	UPDATE dbo.Vang
+	SET HocBu = @hocBu
+	WHERE MaHocVien = @maHV
+	AND MaLop = @maLop
+	AND Buoi = @buoi
+END
+GO
+
+------------------------------------------------------------------------------------------------------------------------------------------
+CREATE PROC UnenrollAbsent @maHV INT, @maLop INT, @buoi INT
+AS BEGIN
+	UPDATE dbo.Vang
+	SET HocBu = NULL
+	WHERE MaHocVien = @maHV
+	AND MaLop = @maLop
+	AND Buoi = @buoi
+END
+GO
+
 ------------------------------------------------------------------------------------------------------------------------------------------
 --Delete Enroll
 --EXEC DeleteEnroll 
@@ -1149,16 +1131,6 @@ BEGIN
 END
 GO
 
-------------------------------------------------------------------------------------------------------------------------------------------
--- Thủ tục lấy tất cả mã lớp của Học viên
-CREATE PROC LayLopHocHV @maHocVien INT
-AS
-BEGIN
-	SELECT MaLop 
-	FROM DangKy 
-	WHERE MaHocVien=@maHocVien
-END
-GO
 ------------------------------------------------------------------------------------------------------------------------------------------
 CREATE PROC LayID @user VARCHAR(32)
 AS
@@ -1323,6 +1295,7 @@ CREATE PROC InsertTeacher(@id int,
 @salary int)
 AS
 BEGIN
+	UPDATE dbo.PasswordOld SET Pass = '000000'
     INSERT INTO dbo.Account VALUES(@id , @userName , @pass , 3)
 	INSERT INTO dbo.GiaoVien VALUES(@id , @name , @phoneNumber, @address, @salary)
 END
@@ -1335,7 +1308,8 @@ CREATE PROC UpdateTeacher(@id INT ,
 @phoneNumber VARCHAR(10),
 @address NVARCHAR(50),
 @salary INT,
-@pass VARCHAR(32))
+@pass VARCHAR(32),
+@passOld VARCHAR(32))
 AS
 BEGIN
     UPDATE dbo.GiaoVien
@@ -1343,6 +1317,8 @@ BEGIN
 	WHERE MaGiaoVien = @id
 	IF (@pass != '0')
 	BEGIN
+		UPDATE PasswordOld 
+		SET pass = @passOld
 		UPDATE dbo.Account
 		SET MatKhau = @pass
 		WHERE IDTaiKhoan = @id
@@ -1382,6 +1358,7 @@ CREATE PROC InsertStudent(@id int,
 @birthDate VARCHAR(12))
 AS
 BEGIN
+	UPDATE dbo.PasswordOld SET Pass = '000000'
     INSERT INTO dbo.Account VALUES(@id , @userName , @pass , 4)
 	INSERT INTO dbo.HocVien VALUES(@id , @name , @phoneNumber, @address, @email, @birthDate)
 END
@@ -1395,7 +1372,8 @@ CREATE PROC UpdateStudent(@id INT ,
 @address NVARCHAR(50),
 @email VARCHAR(50),
 @birthDate VARCHAR(12),
-@pass VARCHAR(32))
+@pass VARCHAR(32),
+@passOld VARCHAR(32))
 AS
 BEGIN
     UPDATE dbo.HocVien 
@@ -1403,6 +1381,8 @@ BEGIN
 	WHERE MaHocVien = @id
 	IF (@pass != '0')
 	BEGIN 
+		UPDATE PasswordOld 
+		SET pass = @passOld
 		UPDATE dbo.Account
 		SET MatKhau = @pass
 		WHERE IDTaiKhoan = @id
@@ -1412,39 +1392,58 @@ GO
 
 ---------------------------------------------------------------------------------------------------------------------------------------------
 --STORE PROCEDURE Phân Quyền
-CREATE PROC phanQuyen (@username VARCHAR(32), @pass VARCHAR(32), @type INT)
+CREATE PROC phanQuyen (@username VARCHAR(32), @pass VARCHAR(32), @oldPass VARCHAR(32), @type INT)
 AS BEGIN
 	DECLARE @sql VARCHAR(max)
-	IF ((SELECT COUNT(*) FROM master.sys.syslogins where name = @username) > 0)
-		EXEC ('DROP LOGIN ' + @username)
-	IF EXISTS (SELECT name FROM TrungTamAnhNgu.sys.database_principals WHERE type = N'S' AND name = @username)  
-		EXEC ('DROP USER ' + @username)
+
 	IF (@type = 3) --Giáo viên
 	BEGIN 
-		SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
+		IF (@oldPass = '0')
+			SET @sql=' ALTER LOGIN '+@username+' WITH Password = ''' + @pass + ''''
+		ELSE IF ((SELECT COUNT(*) FROM master.sys.syslogins where name = @username) > 0)
+			SET @sql=' ALTER LOGIN '+@username+' WITH Password = ''' + @pass + ''' Old_Password = ''' + @oldPass + ''''
+		ELSE
+			SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
 		EXEC (@sql) 
-		SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
-		EXEC (@sql) 
-		SET @sql= CONCAT('sp_addrolemember ', '''role_giaovien'',', '''', @username, '''')
-		EXEC (@sql)
+		IF ((SELECT COUNT(*) FROM TrungTamAnhNgu.sys.database_principals WHERE type = N'S' AND name = @username) = 0)
+		BEGIN 
+			SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
+			EXEC (@sql)
+			SET @sql= CONCAT('sp_addrolemember ', '''role_giaovien'',', '''', @username, '''')
+			EXEC (@sql)
+		END
 	END 
 	ELSE IF (@type = 4) --Học Sinh
 	BEGIN 
-		SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
+		IF (@oldPass = '0')
+			SET @sql=' ALTER LOGIN '+@username+' WITH Password = ''' + @pass + ''''
+		ELSE IF ((SELECT COUNT(*) FROM master.sys.syslogins where name = @username) > 0)
+			SET @sql=' ALTER LOGIN '+@username+' WITH Password = ''' + @pass + ''' Old_Password = ''' + @oldPass + ''''
+		ELSE
+			SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
 		EXEC (@sql) 
-		SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
-		EXEC (@sql) 
-		SET @sql= CONCAT('sp_addrolemember ', '''role_hocsinh'',', '''', @username, '''')
-		EXEC (@sql)
+		IF ((SELECT COUNT(*) FROM TrungTamAnhNgu.sys.database_principals WHERE type = N'S' AND name = @username) = 0)
+		BEGIN
+			SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
+			EXEC (@sql) 
+			SET @sql= CONCAT('sp_addrolemember ', '''role_hocsinh'',', '''', @username, '''')
+			EXEC (@sql)
+		END
 	END 
 	ELSE IF (@type = 1) --Admin
 	BEGIN 
-		SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
+		IF ((SELECT COUNT(*) FROM master.sys.syslogins where name = @username) > 0)
+			SET @sql=' ALTER LOGIN '+@username+' WITH Password = ''' + @pass + ''' Old_Password = ''' + @oldPass + ''''
+		ELSE
+			SET @sql=' CREATE LOGIN '+@username+' WITH Password = ''' + @pass + ''''
 		EXEC (@sql) 
-		SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
-		EXEC (@sql) 
-		SET @sql= CONCAT('sp_addrolemember ', '''db_owner'',', '''', @username, '''')
-		EXEC (@sql)
+		IF ((SELECT COUNT(*) FROM TrungTamAnhNgu.sys.database_principals WHERE type = N'S' AND name = @username) = 0)
+		BEGIN
+			SET @sql=' CREATE USER '+@username+' FOR LOGIN ' + @username
+			EXEC (@sql) 
+			SET @sql= CONCAT('sp_addrolemember ', '''db_owner'',', '''', @username, '''')
+			EXEC (@sql)
+		END
 	END 
 END
 GO
@@ -1458,11 +1457,16 @@ ON dbo.HocVien
 AFTER INSERT
 AS
 BEGIN 
-	DECLARE @Ma INT, @sql VARCHAR(MAX)
+	DECLARE @Ma INT, @sql VARCHAR(MAX), @TaiKhoan VARCHAR(32)
 	SELECT @Ma = Inserted.MaHocVien
 	FROM Inserted
+	SELECT @TaiKhoan = TaiKhoan
+	FROM dbo.Account
+	WHERE IDTaiKhoan = @Ma
 	SET @sql = 'CREATE VIEW Lich_' + CONVERT(VARCHAR(10), @Ma) + ' AS (SELECT * FROM LichHocTheoHocVien(' + CONVERT(VARCHAR(10), @Ma) + '))'
 	EXECUTE (@sql)
+	SET @sql = 'GRANT SELECT ON dbo.Lich_' +CONVERT(VARCHAR(10), @Ma) + ' TO ' + @TaiKhoan
+	EXEC (@sql)
 END
 GO
 
@@ -1473,11 +1477,16 @@ ON dbo.GiaoVien
 AFTER INSERT
 AS
 BEGIN
-	DECLARE @Ma INT, @sql VARCHAR(MAX)
+	DECLARE @Ma INT, @sql VARCHAR(MAX), @TaiKhoan VARCHAR(32)
 	SELECT @Ma = Inserted.MaGiaoVien
 	FROM Inserted
+	SELECT @TaiKhoan = TaiKhoan
+	FROM dbo.Account
+	WHERE IDTaiKhoan = @Ma
 	SET @sql = 'CREATE VIEW Lich_' + CONVERT(VARCHAR(10), @Ma) + ' AS (SELECT * FROM LichDayTheoGiangVien(' + CONVERT(VARCHAR(10), @Ma) + '))'
 	EXECUTE (@sql)
+	SET @sql = 'GRANT SELECT ON dbo.Lich_' +CONVERT(VARCHAR(10), @Ma) + ' TO ' + @TaiKhoan
+	EXEC (@sql)
 END
 GO
 
@@ -1596,10 +1605,12 @@ ON dbo.Account
 AFTER INSERT, UPDATE
 AS
 BEGIN
-	DECLARE @pass VARCHAR(32), @id INT, @username VARCHAR(32), @type INT
+	DECLARE @pass VARCHAR(32), @id INT, @username VARCHAR(32), @type INT, @oldPass VARCHAR(32)
 	SELECT @pass = Inserted.MatKhau, @id = Inserted.IDTaiKhoan, @type = Inserted.LoaiTaiKhoan, @username = Inserted.TaiKhoan
 	FROM Inserted
-	EXEC dbo.phanQuyen @username, @pass, @type
+	SELECT @oldPass = pass
+	FROM PasswordOld
+	EXEC dbo.phanQuyen @username, @pass, @oldPass, @type
 	SET @pass = dbo.MaHoaMD5(@pass)
 	UPDATE dbo.Account 
 	SET MatKhau = @pass
