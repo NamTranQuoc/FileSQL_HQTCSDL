@@ -1,6 +1,28 @@
 ﻿USE TrungTamAnhNgu
 go
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ---------------------------------------------------------------------------------------------------------------------------------------------
 --Phần Quyền
 ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -45,6 +67,6 @@ GRANT EXEC ON GetListNameCource TO Khach
 GRANT EXEC ON LopTheoKhoaHoc TO Khach
 GRANT EXEC ON KienTraDangNhap TO Khach
 GRANT EXEC ON LayID TO Khach
-GRANT EXEC ON TaoMaTuDong TO Khach
+GRANT EXEC ON InsertTeacher TO Khach
 GRANT EXEC ON InsertStudent TO Khach
 GRANT EXEC ON dbo.phanQuyen TO Khach
