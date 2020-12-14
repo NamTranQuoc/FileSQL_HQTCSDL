@@ -800,7 +800,7 @@ GO
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- GetSchdule
-cre PROC [GetSchedule] (@iDClass VARCHAR(10), @day VARCHAR(15), @session VARCHAR(50), @allDay BIT)
+CREATE PROC [GetSchedule] (@iDClass VARCHAR(10), @day VARCHAR(15), @session VARCHAR(50), @allDay BIT)
 AS
 BEGIN
     DECLARE @sql VARCHAR(MAX), @exec VARCHAR(MAX)

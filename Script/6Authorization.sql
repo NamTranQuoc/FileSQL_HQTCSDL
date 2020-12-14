@@ -15,7 +15,7 @@ GO
 IF ((SELECT COUNT(*) FROM master.sys.syslogins where name = 'login_guest') > 0)
 	DROP LOGIN login_guest
 GO
-IF EXISTS (SELECT name FROM TrungTamAnhNgu.sys.database_principals WHERE type = N'S' AND name = 'login_guest')  
+IF EXISTS (SELECT name FROM [EnglishCenterDB].sys.database_principals WHERE type = N'S' AND name = 'login_guest')  
 	DROP USER login_guest
 GO
 CREATE LOGIN login_guest WITH PASSWORD = '1@34a'
